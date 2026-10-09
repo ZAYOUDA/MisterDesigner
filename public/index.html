@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="Éditeur de conception IBM Planning Analytics / TM1 : cubes, dimensions, liens, import Excel et export HTML.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<title>CubeDesigner</title>
+<title>MisterDesigner</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
 <style id="app-style">
@@ -265,7 +265,7 @@ textarea.field{resize:vertical;min-height:64px}
   <header class="top">
     <div class="brand">
       <svg width="26" height="26" viewBox="0 0 36 36" aria-hidden="true"><polygon points="0,8 8,0 36,0 28,8" fill="#4C88B4"></polygon><rect x="0" y="8" width="28" height="28" fill="#1F5F8B"></rect><polygon points="28,8 36,0 36,28 28,36" fill="#14435F"></polygon></svg>
-      <span>CubeDesigner</span>
+      <span>MisterDesigner</span>
     </div>
     <div class="mtitle">
       <span class="eyebrow">Projet</span>
@@ -1173,7 +1173,7 @@ function slug(){ return 'conception-' + (model.name.normalize('NFD').replace(/[�
 function buildHTML(){
   var data = JSON.stringify(model).replace(/</g, '\\u003c');
   return '<!doctype html>\n<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
-    '<title>' + esc(model.name) + ' — CubeDesigner</title>' +
+    '<title>' + esc(model.name) + ' — MisterDesigner</title>' +
     '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">' +
     '<style id="app-style">' + STYLE + '</style></head><body>' + SHELL +
     '<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>' +
@@ -1686,7 +1686,7 @@ $('#file').addEventListener('change', function(e){
         else { var el = new DOMParser().parseFromString(txt, 'text/html').getElementById('cd-model'); if (!el || !el.textContent.trim()) throw new Error('nomodel'); m = JSON.parse(el.textContent); }
         if (!m || !Array.isArray(m.cubes)) throw new Error('nomodel');
         importModelFile(m);
-      } catch (err) { toast(ext === 'json' ? 'Ce fichier JSON n’est pas un modèle CubeDesigner' : 'Ce fichier HTML ne contient pas de modèle CubeDesigner exporté'); }
+      } catch (err) { toast(ext === 'json' ? 'Ce fichier JSON n’est pas un modèle MisterDesigner' : 'Ce fichier HTML ne contient pas de modèle MisterDesigner exporté'); }
     };
     rd.readAsText(f);
   } else if (ext === 'xlsx' || ext === 'xls' || ext === 'xlsm') {
