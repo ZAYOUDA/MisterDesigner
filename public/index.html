@@ -47,6 +47,16 @@ button{cursor:pointer}
 .eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
 #mname{border:0;background:none;padding:2px 4px;border-radius:4px;font-weight:600;font-size:14px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
 #mname:hover{background:var(--panel-2)}
+.pcount{font-size:11px;font-weight:600;background:var(--accent-soft);color:var(--accent);border-radius:9px;padding:0 6px;line-height:18px}
+.pcount:empty{display:none}
+.projlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:420px;overflow:auto}
+.prow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;border:1px solid var(--line-2);border-radius:8px;padding:10px 12px}
+.prow.cur{border-color:var(--accent);background:var(--accent-soft)}
+.pinfo{flex:1 1 240px;min-width:0}
+.pname{font-weight:600;font-size:14px;overflow-wrap:anywhere}
+.pmeta{font-size:12px;color:var(--ink-3);margin-top:2px}
+.pbadge{font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);margin-left:6px}
+.pacts{display:flex;gap:6px;flex-wrap:wrap}
 .saved{font-size:12px;color:var(--ok);background:var(--ok-soft);padding:2px 8px;border-radius:10px;white-space:nowrap}
 .tabs{display:flex;gap:3px;background:var(--panel-2);border:1px solid var(--line-2);padding:3px;border-radius:8px}
 .tabs button{border:0;background:transparent;padding:6px 14px;border-radius:6px;font-size:13px;color:var(--ink-2)}
@@ -258,8 +268,9 @@ textarea.field{resize:vertical;min-height:64px}
       <span>CubeDesigner</span>
     </div>
     <div class="mtitle">
-      <span class="eyebrow">Modèle</span>
-      <button type="button" id="mname" title="Propriétés du modèle"></button>
+      <span class="eyebrow">Projet</span>
+      <button type="button" id="mname" title="Propriétés du projet"></button>
+      <button type="button" id="btn-projects" class="btn sm" title="Ouvrir, créer, dupliquer ou supprimer des projets"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>Projets<span id="pcount" class="pcount"></span></button>
       <span id="saved" class="saved"></span>
     </div>
     <div class="tabs" role="tablist" aria-label="Vue">
@@ -524,7 +535,30 @@ var model, sel = null, hl = null, tab = 'schema', view = {x:40,y:30,k:1};
 var undo = [], redo = [], pending = null, suppress = false, linkKind = 'rule';
 var restoredMsg = '';
 
+var PKEY = 'cubedesigner.projects.v1', CUR = 'cubedesigner.current', PFX = 'cubedesigner.p.';
+function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+function lsSet(k, v){ try { localStorage.setItem(k, v); return true; } catch(e){ return false; } }
+function lsDel(k){ try { localStorage.removeItem(k); } catch(e){} }
+function projIndex(){ try { var l = JSON.parse(lsGet(PKEY) || '[]'); return Array.isArray(l) ? l : []; } catch(e){ return []; } }
+function projRow(m){ return { id:m.id, name:m.name, updated:m.updated, cubes:m.cubes.length, links:m.links.length, dims:m.dims.length }; }
+function touchIndex(m){
+  var l = projIndex(), r = projRow(m), i = l.findIndex(function(x){ return x.id === m.id; });
+  if (i >= 0) l[i] = r; else l.push(r);
+  lsSet(PKEY, JSON.stringify(l));
+}
+function loadProject(id){ var s = lsGet(PFX + id); if (!s) return null; try { return normalize(JSON.parse(s)); } catch(e){ return null; } }
 function load(){
+  if (!embedded) {
+    if (lsGet(PKEY) == null) { // first run with projects: move the single saved model into the list
+      var old = lsGet(STORE), om = null;
+      try { om = old ? normalize(JSON.parse(old)) : null; } catch(e){}
+      lsSet(PKEY, '[]');
+      if (om) { om.updated = om.updated || new Date().toISOString(); lsSet(PFX + om.id, JSON.stringify(om)); touchIndex(om); lsSet(CUR, om.id); lsDel(STORE); }
+    }
+    var cur = lsGet(CUR), m = cur && loadProject(cur);
+    if (!m) { var l = projIndex().sort(function(a, b){ return String(b.updated).localeCompare(String(a.updated)); }); for (var i = 0; i < l.length && !m; i++) m = loadProject(l[i].id); }
+    return m || sample();
+  }
   if (embedded) {
     var m = normalize(embedded); storeKey = STORE + ':' + m.id;
     try { var s = localStorage.getItem(storeKey); if (s) { var l = JSON.parse(s); if (l.updated && (!m.updated || l.updated > m.updated)) { restoredMsg = 'Vos modifications locales de ce fichier ont été restaurées.'; return normalize(l); } } } catch(e){}
@@ -535,7 +569,11 @@ function load(){
 }
 function save(){
   model.updated = new Date().toISOString();
-  try { localStorage.setItem(storeKey, JSON.stringify(model)); } catch(e){}
+  if (embedded) lsSet(storeKey, JSON.stringify(model));
+  else {
+    if (!lsSet(PFX + model.id, JSON.stringify(model))) toast('Le stockage du navigateur est plein : exportez puis supprimez d\u2019anciens projets');
+    touchIndex(model); lsSet(CUR, model.id);
+  }
   var d = new Date(model.updated);
   $('#saved').textContent = 'Enregistré · ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
 }
@@ -569,6 +607,8 @@ function renderAll(){
   $('#btn-edit').hidden = !embedded;
   $('#btn-edit').textContent = readonly ? 'Modifier' : 'Terminer les modifications';
   $('#mname').textContent = model.name;
+  $('#btn-projects').hidden = !!embedded;
+  if (!embedded) { var pc = projIndex().length; $('#pcount').textContent = pc > 1 ? pc : ''; }
   $('#tab-schema').setAttribute('aria-selected', tab === 'schema');
   $('#tab-matrix').setAttribute('aria-selected', tab === 'matrix');
   $('#stagebar').hidden = tab !== 'schema'; vp.hidden = tab !== 'schema'; $('#matrix').hidden = tab !== 'matrix';
@@ -716,8 +756,8 @@ function renderRight(){
   } else {
     var cnt = {}; model.cubes.forEach(function(c){ cnt[c.type] = (cnt[c.type] || 0) + 1; });
     var kc = {}; model.links.forEach(function(l){ kc[l.kind] = (kc[l.kind] || 0) + 1; });
-    h = '<div class="eyebrow">Modèle</div>' +
-      '<label class="l" for="f-mname">Nom du modèle</label><input class="field" id="f-mname" data-f="m-name" value="' + esc(model.name) + '"' + dis() + '>' +
+    h = '<div class="eyebrow">Projet</div>' +
+      '<label class="l" for="f-mname">Nom du projet</label><input class="field" id="f-mname" data-f="m-name" value="' + esc(model.name) + '"' + dis() + '>' +
       '<label class="l" for="f-mdesc">Description</label><textarea class="field" id="f-mdesc" data-f="m-desc" placeholder="Client, périmètre, version…"' + dis() + '>' + esc(model.desc) + '</textarea>' +
       (model.sample ? '<p class="note">Ceci est un exemple. Cliquez sur <b>Importer</b> pour charger votre matrice Excel Dims × Cubes.</p>' : '') +
       '<div class="stats"><div class="stat"><b>' + model.cubes.length + '</b><span>cubes</span></div><div class="stat"><b>' + model.dims.length + '</b><span>dimensions</span></div><div class="stat"><b>' + model.links.length + '</b><span>liens</span></div></div>' +
@@ -1003,6 +1043,79 @@ right.addEventListener('click', function(e){
   }
 });
 
+/* ---------- projects ---------- */
+function keepName(mode, fallback){ return mode === 'replace' && model.name && !model.sample && !/^(Nouveau projet|Nouveau modèle|Modèle sans titre)$/.test(model.name) ? model.name : fallback; }
+function defaultMode(){ return (!model.cubes.length || model.sample) ? 'replace' : (embedded ? 'merge' : 'project'); }
+function modeFieldset(mode, replaceText, mergeText){
+  return '<fieldset class="opts"><legend>Où importer ?</legend>' +
+    (embedded ? '' : '<label><input type="radio" name="m-mode" value="project"' + (mode === 'project' ? ' checked' : '') + '><span>Nouveau projet<small>Crée un projet séparé. « ' + esc(model.name) + ' » reste intact.</small></span></label>') +
+    '<label><input type="radio" name="m-mode" value="replace"' + (mode === 'replace' ? ' checked' : '') + '><span>Remplacer le projet actuel<small>' + replaceText + '</small></span></label>' +
+    '<label><input type="radio" name="m-mode" value="merge"' + (mode === 'merge' ? ' checked' : '') + '><span>Fusionner avec le projet actuel<small>' + mergeText + '</small></span></label></fieldset>';
+}
+function openProject(m){
+  model = normalize(m); undo = []; redo = []; sel = null; hl = null; tab = 'schema';
+  save(); renderAll(); requestAnimationFrame(fit);
+}
+function newProject(){ openProject({ name:'Nouveau projet', types:model.types }); toast('Nouveau projet créé'); var f = $('#f-mname'); if (f) { f.focus(); f.select(); } }
+function importModelFile(m){
+  if (embedded) { mutate(function(){ model = normalize(m); }); sel = null; hl = null; renderAll(); fit(); toast('Modèle importé · Ctrl + Z pour annuler'); return; }
+  var exists = m.id && projIndex().some(function(x){ return x.id === m.id; });
+  if (!exists) { openProject(m); toast('Projet « ' + model.name + ' » importé'); return; }
+  openModal('<div class="mhead"><h2>Ce projet existe déjà</h2></div><div class="mbody"><p>« ' + esc(m.name) + ' » est déjà enregistré dans ce navigateur. Voulez-vous le remplacer par le fichier importé, ou garder les deux ?</p></div>' +
+    '<div class="mfoot"><button type="button" class="btn" data-m="cancel">Annuler</button><button type="button" class="btn" data-m="copy">Garder les deux</button><button type="button" class="btn primary" data-m="over">Remplacer l’existant</button></div>',
+    function(act){
+      if (act === 'copy') { m.id = uid('m'); m.name = m.name + ' (copie importée)'; }
+      if (act === 'copy' || act === 'over') { closeModal(); openProject(m); toast('Projet « ' + model.name + ' » importé'); }
+    });
+}
+function fmtDate(iso){ if (!iso) return ''; var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('fr-FR') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
+function projectsDialog(){
+  var q = '';
+  function rows(){
+    var l = projIndex().sort(function(a, b){ return String(b.updated).localeCompare(String(a.updated)); });
+    if (!l.some(function(x){ return x.id === model.id; })) l.unshift(projRow(model));
+    var f = l.filter(function(x){ return !q || x.name.toLowerCase().indexOf(q) >= 0; });
+    return (f.map(function(x){
+      var cur = x.id === model.id;
+      return '<li class="prow' + (cur ? ' cur' : '') + '"><div class="pinfo"><div class="pname">' + esc(x.name) + (cur ? ' <span class="pbadge">Ouvert</span>' : '') + '</div>' +
+        '<div class="pmeta">' + x.cubes + ' cubes · ' + x.dims + ' dimensions · ' + x.links + ' liens' + (x.updated ? ' · modifié le ' + fmtDate(x.updated) : '') + '</div></div>' +
+        '<div class="pacts">' + (cur ? '' : '<button type="button" class="btn sm" data-m="open" data-pid="' + x.id + '">Ouvrir</button>') +
+        '<button type="button" class="btn sm" data-m="dup" data-pid="' + x.id + '">Dupliquer</button>' +
+        '<button type="button" class="btn sm danger" data-m="del" data-pid="' + x.id + '">Supprimer</button></div></li>';
+    }).join('') || '<li class="hint" style="padding:12px">Aucun projet ne correspond.</li>');
+  }
+  function draw(){ var ul = $('#plist'); if (ul) ul.innerHTML = rows(); }
+  var n = projIndex().length;
+  openModal('<div class="mhead"><div class="eyebrow">Enregistrés dans ce navigateur</div><h2>Projets</h2></div><div class="mbody">' +
+    (n > 5 ? '<input id="p-search" class="field" type="search" placeholder="Rechercher un projet" aria-label="Rechercher un projet" style="margin-bottom:10px">' : '') +
+    '<ul class="projlist" id="plist"></ul>' +
+    '<p class="hint">Les projets restent dans ce navigateur, sur cet ordinateur. Exportez-les en HTML ou JSON pour les sauvegarder ou les partager.</p></div>' +
+    '<div class="mfoot"><button type="button" class="btn" data-m="cancel">Fermer</button><button type="button" class="btn primary" data-m="new">Nouveau projet</button></div>',
+    function(act, b){
+      var id = b.dataset.pid;
+      if (act === 'new') { closeModal(); newProject(); return; }
+      if (act === 'open') { var m = loadProject(id); if (!m) { toast('Ce projet est illisible'); return; } closeModal(); openProject(m); toast('Projet « ' + model.name + ' » ouvert'); return; }
+      if (act === 'dup') {
+        var src = id === model.id ? normalize(JSON.parse(JSON.stringify(model))) : loadProject(id); if (!src) return;
+        src.id = uid('m'); src.name = src.name + ' (copie)'; src.updated = new Date().toISOString(); src.sample = false;
+        lsSet(PFX + src.id, JSON.stringify(src)); touchIndex(src); draw(); toast('Copie créée : « ' + src.name + ' »'); return;
+      }
+      if (act === 'del') {
+        if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Confirmer'; return; }
+        var name = (projIndex().filter(function(x){ return x.id === id; })[0] || { name:model.name }).name;
+        lsDel(PFX + id); lsSet(PKEY, JSON.stringify(projIndex().filter(function(x){ return x.id !== id; })));
+        if (id === model.id) {
+          var rest = projIndex().sort(function(a, c){ return String(c.updated).localeCompare(String(a.updated)); }), next = null;
+          for (var i = 0; i < rest.length && !next; i++) next = loadProject(rest[i].id);
+          model = null; openProject(next || { name:'Nouveau projet' });
+        }
+        draw(); toast('Projet « ' + name + ' » supprimé'); return;
+      }
+    });
+  draw();
+  var ps = $('#p-search'); if (ps) ps.addEventListener('input', function(e){ q = e.target.value.trim().toLowerCase(); draw(); });
+}
+
 /* ---------- toolbar ---------- */
 $('#mname').addEventListener('click', function(){ sel = null; renderAll(); var f = $('#f-mname'); if (f && !readonly) f.focus(); });
 $('#tab-schema').addEventListener('click', function(){ tab = 'schema'; renderAll(); });
@@ -1018,10 +1131,12 @@ $('#z-val').addEventListener('click', function(){ zoomAt(1, vp.clientWidth/2, vp
 $('#z-fit').addEventListener('click', fit);
 $('#btn-edit').addEventListener('click', function(){ readonly = !readonly; renderAll(); toast(readonly ? 'Mode lecture' : 'Mode édition : pensez à réexporter pour partager vos changements'); });
 $('#btn-new').addEventListener('click', function(){
-  openModal('<div class="mhead"><h2>Créer un modèle vide ?</h2></div><div class="mbody"><p>Le modèle actuel sera remplacé. Vous pourrez revenir en arrière avec Annuler tant que la page reste ouverte. Exportez-le d’abord si vous voulez le conserver.</p></div>' +
-    '<div class="mfoot"><button type="button" class="btn" data-m="cancel">Annuler</button><button type="button" class="btn primary" data-m="ok">Créer le modèle vide</button></div>',
-    function(act){ if (act === 'ok') { mutate(function(){ model = normalize({ name:'Nouveau modèle', types:model.types }); }); sel = null; hl = null; closeModal(); renderAll(); fit(); } });
+  if (embedded) {
+    mutate(function(){ model = normalize({ name:'Nouveau modèle', types:model.types }); }); sel = null; hl = null; renderAll(); fit(); toast('Modèle vide · Ctrl + Z pour annuler'); return;
+  }
+  newProject();
 });
+$('#btn-projects').addEventListener('click', projectsDialog);
 $('#btn-import').addEventListener('click', function(){ var f = $('#file'); f.value = ''; f.click(); });
 $('#btn-json').addEventListener('click', function(){ saveFile(slug() + '.json', JSON.stringify(model, null, 2)); });
 $('#btn-html').addEventListener('click', function(){ saveFile(slug() + '.html', buildHTML()); });
@@ -1570,8 +1685,7 @@ $('#file').addEventListener('change', function(e){
         if (ext === 'json') m = JSON.parse(txt);
         else { var el = new DOMParser().parseFromString(txt, 'text/html').getElementById('cd-model'); if (!el || !el.textContent.trim()) throw new Error('nomodel'); m = JSON.parse(el.textContent); }
         if (!m || !Array.isArray(m.cubes)) throw new Error('nomodel');
-        mutate(function(){ model = normalize(m); });
-        sel = null; hl = null; renderAll(); fit(); toast('Modèle « ' + model.name + ' » importé · Ctrl + Z pour annuler');
+        importModelFile(m);
       } catch (err) { toast(ext === 'json' ? 'Ce fichier JSON n’est pas un modèle CubeDesigner' : 'Ce fichier HTML ne contient pas de modèle CubeDesigner exporté'); }
     };
     rd.readAsText(f);
@@ -1637,7 +1751,7 @@ function parseMatrix(rows){
 function drawingDialog(fileName, base, list, matrixFallback){
   var idx = 0;
   list.forEach(function(r, i){ if (!r.hidden && list[idx].hidden) idx = i; });
-  var dm, types, mode = (!model.cubes.length || model.sample) ? 'replace' : 'merge';
+  var dm, types, mode = defaultMode();
   function compute(){
     dm = DrawImport.toModel(list[idx], { scale:1.4 });
     dm.types.forEach(function(t){ var ex = model.types.filter(function(x){ return x.label.toLowerCase() === t.label.toLowerCase(); })[0]; if (ex) { dm.cubes.forEach(function(c){ if (c.type === t.id) c.type = ex.id; }); t.existing = ex.id; } });
@@ -1652,9 +1766,7 @@ function drawingDialog(fileName, base, list, matrixFallback){
       (dm.types.length ? '<p class="hint" style="margin:0 0 10px">Légende reconnue : ' + list[idx].legend.map(function(l){ return '<b>' + esc(l.label) + '</b>'; }).join(', ') + '. Les couleurs des cubes servent à choisir leur type' + (dm.types.some(function(t){ return !t.existing; }) ? ', et le type « ' + esc(dm.types.filter(function(t){ return !t.existing; }).map(function(t){ return t.label; }).join(' », « ')) + ' » sera créé.' : '.') + '</p>' : '') +
       '<div class="prev"><table><thead><tr><th>Cube</th><th>Type</th><th>Dims</th></tr></thead><tbody>' +
       dm.cubes.map(function(c, i){ return '<tr><td>' + esc(c.name) + '</td><td><select data-ti="' + i + '" aria-label="Type de ' + esc(c.name) + '">' + opts(TYPES, types[i]) + '</select></td><td class="n">' + (c.dims.length || '–') + '</td></tr>'; }).join('') + '</tbody></table></div>' +
-      '<fieldset class="opts"><legend>Que faire du modèle actuel ?</legend>' +
-      '<label><input type="radio" name="m-mode" value="replace"' + (mode === 'replace' ? ' checked' : '') + '><span>Remplacer le modèle<small>Reprend le schéma Excel tel qu’il est placé, avec ses liens et ses repères.</small></span></label>' +
-      '<label><input type="radio" name="m-mode" value="merge"' + (mode === 'merge' ? ' checked' : '') + '><span>Fusionner<small>Met à jour les cubes de même nom, ajoute les nouveaux sous le schéma actuel, complète les liens.</small></span></label></fieldset>' +
+      modeFieldset(mode, 'Reprend le schéma Excel tel qu\u2019il est placé, avec ses liens et ses repères.', 'Met à jour les cubes de même nom, ajoute les nouveaux sous le schéma actuel, complète les liens.') +
       (dm.notes.length ? '<p class="hint">Les textes libres du schéma (' + dm.notes.length + ') sont repris dans la description du modèle.</p>' : '') +
       '</div><div class="mfoot">' + (matrixFallback ? '<button type="button" class="btn" data-m="matrix" style="margin-right:auto">Importer plutôt la matrice Dims × Cubes</button>' : '') +
       '<button type="button" class="btn" data-m="cancel">Annuler</button><button type="button" class="btn primary" data-m="import">Importer ' + dm.cubes.length + ' cubes</button></div>';
@@ -1672,12 +1784,13 @@ function drawingDialog(fileName, base, list, matrixFallback){
     var links = dm.links.map(function(l){ return { id:uid('l'), from:ids[l.from], to:ids[l.to], kind:l.kind, label:l.label, desc:'' }; });
     var notes = dm.notes.length ? 'Notes du schéma Excel :\n' + dm.notes.join('\n') : '';
     var sheetName = list[idx].sheet, added = 0;
-    mutate(function(){
-      var allTypes = model.types.concat(newTypes.filter(function(t){ return !model.types.some(function(x){ return x.id === t.id; }); }));
-      if (mode === 'replace') {
-        model = normalize({ name:sheetName, desc:notes, types:allTypes, dims:dm.dims.map(function(d){ return { name:d.name, measure:guessMeasure(d.name) }; }), cubes:cubes, links:links });
-        added = cubes.length;
-      } else {
+    var allTypes = model.types.concat(newTypes.filter(function(t){ return !model.types.some(function(x){ return x.id === t.id; }); }));
+    if (mode !== 'merge') {
+      var nm = normalize({ id:mode === 'replace' ? model.id : undefined, name:keepName(mode, sheetName), desc:notes, types:allTypes, dims:dm.dims.map(function(d){ return { name:d.name, measure:guessMeasure(d.name) }; }), cubes:cubes, links:links });
+      if (mode === 'replace') mutate(function(){ model = nm; }); else openProject(nm);
+      added = cubes.length;
+    } else mutate(function(){
+      {
         model.types = allTypes; syncTypes(model.types);
         dm.dims.forEach(function(d){ if (!dimObj(d.name)) model.dims.push({ name:d.name, measure:guessMeasure(d.name), desc:'' }); });
         var y0 = model.cubes.reduce(function(m, c){ return Math.max(m, c.y + estH(c)); }, 0) + 160, remap = {};
@@ -1694,14 +1807,14 @@ function drawingDialog(fileName, base, list, matrixFallback){
       }
     });
     sel = null; hl = null; closeModal(); tab = 'schema'; renderAll(); fit();
-    toast(mode === 'replace' ? cubes.length + ' cubes et ' + links.length + ' liens importés depuis « ' + sheetName + ' »' : added + ' cubes ajoutés, ' + (cubes.length - added) + ' mis à jour');
+    toast(mode !== 'merge' ? cubes.length + ' cubes et ' + links.length + ' liens importés depuis « ' + sheetName + ' »' + (mode === 'project' ? ' dans un nouveau projet' : '') : added + ' cubes ajoutés, ' + (cubes.length - added) + ' mis à jour');
   });
   draw();
 }
 function excelDialog(fileName, base, sheets){
   var names = Object.keys(sheets);
   var sheet = names.filter(function(n){ return parseMatrix(sheets[n]).found; })[0] || names[0];
-  var parsed, types, mode = (!model.cubes.length || model.sample) ? 'replace' : 'merge';
+  var parsed, types, mode = defaultMode();
   function compute(){ parsed = parseMatrix(sheets[sheet]); types = parsed.cubes.map(function(c){ return guessType(c.name); }); }
   function draw(){
     var ok = parsed.cubes.length > 0;
@@ -1711,9 +1824,7 @@ function excelDialog(fileName, base, sheets){
     else html += '<div class="detect"><span><b>' + parsed.cubes.length + '</b> cubes</span><span><b>' + parsed.dims.length + '</b> dimensions</span><span><b>' + parsed.marks + '</b> croisements</span></div>' +
       '<div class="prev"><table><thead><tr><th>Cube</th><th>Type détecté</th><th>Dims</th></tr></thead><tbody>' +
       parsed.cubes.map(function(c, i){ return '<tr><td>' + esc(c.name) + '</td><td><select data-ti="' + i + '" aria-label="Type de ' + esc(c.name) + '">' + opts(TYPES, types[i]) + '</select></td><td class="n">' + c.dims.length + '</td></tr>'; }).join('') + '</tbody></table></div>' +
-      '<fieldset class="opts"><legend>Que faire du modèle actuel ?</legend>' +
-      '<label><input type="radio" name="m-mode" value="replace"' + (mode === 'replace' ? ' checked' : '') + '><span>Remplacer le modèle<small>Repart de la matrice importée, sans liens.</small></span></label>' +
-      '<label><input type="radio" name="m-mode" value="merge"' + (mode === 'merge' ? ' checked' : '') + '><span>Fusionner<small>Met à jour les dimensions des cubes de même nom, ajoute les nouveaux, garde positions et liens.</small></span></label></fieldset>';
+      modeFieldset(mode, 'Repart de la matrice importée, sans liens.', 'Met à jour les dimensions des cubes de même nom, ajoute les nouveaux, garde positions et liens.');
     html += '</div><div class="mfoot"><button type="button" class="btn" data-m="cancel">Annuler</button>' + (ok ? '<button type="button" class="btn primary" data-m="import">Importer ' + parsed.cubes.length + ' cubes</button>' : '') + '</div>';
     $('#mbox').innerHTML = html;
     var s = $('#m-sheet'); if (s) s.addEventListener('change', function(e){ sheet = e.target.value; compute(); draw(); });
@@ -1724,11 +1835,12 @@ function excelDialog(fileName, base, sheets){
   openModal('', function(act){
     if (act !== 'import') return;
     var cubes = parsed.cubes.map(function(c, i){ return { name:c.name, type:types[i], dims:c.dims }; }), added = 0;
-    mutate(function(){
-      if (mode === 'replace') {
-        model = normalize({ name:base, types:model.types, dims: parsed.dims.map(function(n){ return { name:n, measure:guessMeasure(n) }; }), cubes: cubes.map(function(c){ return { id:uid('c'), name:c.name, type:c.type, dims:c.dims, open:false }; }) });
-        autoLayout(model.cubes); added = cubes.length;
-      } else {
+    if (mode !== 'merge') {
+      var nm = normalize({ id:mode === 'replace' ? model.id : undefined, name:keepName(mode, base), types:model.types, dims: parsed.dims.map(function(n){ return { name:n, measure:guessMeasure(n) }; }), cubes: cubes.map(function(c){ return { id:uid('c'), name:c.name, type:c.type, dims:c.dims, open:false }; }) });
+      autoLayout(nm.cubes); added = cubes.length;
+      if (mode === 'replace') mutate(function(){ model = nm; }); else openProject(nm);
+    } else mutate(function(){
+      {
         parsed.dims.forEach(function(n){ if (!dimObj(n)) model.dims.push({ name:n, measure:guessMeasure(n), desc:'' }); });
         var fresh = [];
         cubes.forEach(function(c){
@@ -1740,7 +1852,7 @@ function excelDialog(fileName, base, sheets){
       }
     });
     sel = null; hl = null; closeModal(); tab = 'schema'; renderAll(); fit();
-    toast(mode === 'replace' ? parsed.cubes.length + ' cubes et ' + parsed.dims.length + ' dimensions importés' : added + ' cubes ajoutés, ' + (parsed.cubes.length - added) + ' mis à jour');
+    toast(mode !== 'merge' ? parsed.cubes.length + ' cubes et ' + parsed.dims.length + ' dimensions importés' + (mode === 'project' ? ' dans un nouveau projet' : '') : added + ' cubes ajoutés, ' + (parsed.cubes.length - added) + ' mis à jour');
   });
   draw();
 }
