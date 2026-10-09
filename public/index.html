@@ -136,6 +136,9 @@ textarea.field{resize:vertical;min-height:64px}
 #z-val{min-width:58px;justify-content:center;font-variant-numeric:tabular-nums}
 .viewport{flex:1 1 auto;position:relative;overflow:hidden;touch-action:none;cursor:grab;background-color:var(--bg);background-image:radial-gradient(var(--grid) 1.1px,transparent 1.3px);background-size:20px 20px}
 .viewport.panning{cursor:grabbing}
+.viewport.lassoing{cursor:crosshair}
+.lasso{position:absolute;border:1.5px dashed var(--accent);background:var(--accent-soft);opacity:.7;pointer-events:none;z-index:5;border-radius:3px}
+#btn-lasso[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
 .world{position:absolute;left:0;top:0;transform-origin:0 0}
 #nodes,.labels{position:absolute;left:0;top:0}
 .vhint{position:absolute;left:12px;bottom:10px;font-size:11.5px;color:var(--ink-3);background:var(--panel);border:1px solid var(--line-2);padding:4px 9px;border-radius:12px;pointer-events:none;max-width:calc(100% - 24px)}
@@ -174,7 +177,9 @@ textarea.field{resize:vertical;min-height:64px}
 .w.faded{opacity:.25}
 .hit{fill:none;stroke:transparent;stroke-width:14;pointer-events:stroke;cursor:pointer}
 .tmp{fill:none;stroke:var(--accent);stroke-width:2;stroke-dasharray:4 4}
-.wl{position:absolute;transform:translate(-50%,-50%);min-width:30px;height:30px;padding:0 7px;border-radius:15px;background:var(--panel);border:2px solid currentColor;font:700 11px var(--f-sans);display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
+.wlt{max-width:220px;overflow:hidden;text-overflow:ellipsis}
+.wl-edit{position:absolute;transform:translate(-50%,-50%);z-index:6;width:220px;height:32px;border:2px solid var(--accent);border-radius:16px;padding:0 12px;font:600 12px var(--f-sans);background:var(--panel);color:var(--ink);box-shadow:var(--shadow)}
+.wl{position:absolute;transform:translate(-50%,-50%);min-width:30px;height:30px;padding:0 9px;border-radius:15px;background:var(--panel);border:2px solid currentColor;font:700 11px var(--f-sans);display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
 .wl-rule{color:var(--w-rule)} .wl-ti{color:var(--w-ti)} .wl-feeder{color:var(--w-feed)} .wl-read{color:var(--w-read)}
 .wl.sel{box-shadow:0 0 0 4px var(--accent-soft)}
 .wl.faded{opacity:.3}
@@ -330,6 +335,7 @@ textarea.field{resize:vertical;min-height:64px}
         <button type="button" id="btn-expand" class="btn sm">Tout déplier</button>
         <button type="button" id="btn-collapse" class="btn sm">Tout replier</button>
         <button type="button" id="btn-layout" class="btn sm edit-only">Réorganiser</button>
+        <button type="button" id="btn-lasso" class="btn sm edit-only" aria-pressed="false" title="Glisser sur le fond pour encadrer plusieurs cubes (ou Maj + glisser)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2.5" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect></svg>Sélection multiple</button>
         <span class="sep edit-only"></span>
         <button type="button" id="btn-undo" class="btn sm ic edit-only" aria-label="Annuler" title="Annuler (Ctrl+Z)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"></path><path d="M4 9h10a6 6 0 0 1 0 12h-3"></path></svg></button>
         <button type="button" id="btn-redo" class="btn sm ic edit-only" aria-label="Rétablir" title="Rétablir (Ctrl+Y)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14l5-5-5-5"></path><path d="M20 9H10a6 6 0 0 0 0 12h3"></path></svg></button>
@@ -355,7 +361,7 @@ textarea.field{resize:vertical;min-height:64px}
           <div id="nodes"></div>
           <div class="labels" id="labels"></div>
         </div>
-        <div class="vhint" id="vhint">Glisser le fond pour se déplacer · Ctrl + molette pour zoomer<span class="edit-only"> · Glisser le point bleu d'un cube vers un autre pour les relier</span></div>
+        <div class="vhint" id="vhint">Glisser le fond pour se déplacer · Ctrl + molette pour zoomer<span class="edit-only"> · Maj + clic ou Maj + glisser pour sélectionner plusieurs cubes · Glisser le point bleu d'un cube vers un autre pour les relier</span></div>
       </div>
       <div class="matrix" id="matrix" hidden></div>
     </section>
@@ -483,7 +489,7 @@ function normalize(m){
   out.cubes.forEach(function(c){ c.dims.forEach(function(d){ if (!seen[d]) { seen[d] = 1; out.dims.push({ name:d, measure:guessMeasure(d), desc:'' }); } }); });
   var ids = {}; out.cubes.forEach(function(c){ ids[c.id] = 1; });
   out.links = (Array.isArray(m.links) ? m.links : []).filter(function(l){ return l && ids[l.from] && ids[l.to] && l.from !== l.to; })
-    .map(function(l){ return { id: l.id || uid('l'), from:l.from, to:l.to, kind: KINDS[l.kind] ? l.kind : 'rule', label: String(l.label || ''), desc: String(l.desc || '') }; });
+    .map(function(l){ return { id: l.id || uid('l'), from:l.from, to:l.to, kind: KINDS[l.kind] ? l.kind : 'rule', label: String(l.label || ''), name: String(l.name || ''), desc: String(l.desc || '') }; });
   return out;
 }
 function estH(c){ return 62 + (c.open ? 13 + Math.max(1, c.dims.length) * 24 : 0); }
@@ -582,7 +588,14 @@ function pushSnap(s){ undo.push(s); if (undo.length > 80) undo.shift(); redo = [
 function mutate(fn){ pushSnap(snap()); fn(); model.sample = false; save(); renderAll(); }
 function doUndo(){ if (!undo.length || readonly) return; redo.push(snap()); model = normalize(JSON.parse(undo.pop())); fixSel(); save(); renderAll(); toast('Action annulée'); }
 function doRedo(){ if (!redo.length || readonly) return; undo.push(snap()); model = normalize(JSON.parse(redo.pop())); fixSel(); save(); renderAll(); }
+function selIds(){ return sel && sel.k === 'cube' ? [sel.id] : sel && sel.k === 'cubes' ? sel.ids.slice() : []; }
+function setSelIds(ids){
+  ids = ids.filter(function(id, i, a){ return a.indexOf(id) === i && cube(id); });
+  sel = ids.length > 1 ? { k:'cubes', ids:ids } : ids.length ? { k:'cube', id:ids[0] } : null;
+}
+function toggleInSel(id){ var ids = selIds(), i = ids.indexOf(id); if (i >= 0) ids.splice(i, 1); else ids.push(id); setSelIds(ids); if (sel && sel.k !== 'dim') hl = hl; renderAll(); }
 function fixSel(){
+  if (sel && sel.k === 'cubes') setSelIds(sel.ids);
   if (sel && sel.k === 'cube' && !cube(sel.id)) sel = null;
   if (sel && sel.k === 'link' && !link(sel.id)) sel = null;
   if (sel && sel.k === 'dim' && !dimObj(sel.name)) sel = null;
@@ -631,7 +644,7 @@ function renderLeft(){
 }
 function nodeHTML(c){
   var t = TYPES[c.type] || TYPES.calc, on = hl && c.dims.indexOf(hl) >= 0;
-  var cls = 'node' + (sel && sel.k === 'cube' && sel.id === c.id ? ' sel' : '') + (hl ? (on ? ' hl' : ' dimmed') : '');
+  var cls = 'node' + (selIds().indexOf(c.id) >= 0 ? ' sel' : '') + (hl ? (on ? ' hl' : ' dimmed') : '');
   var list = '';
   if (c.open) {
     list = '<ol class="nd">' + (c.dims.map(function(d){
@@ -659,6 +672,7 @@ function geom(a, b){
   else { x1=a.x+a.w/2; y1=a.y; x2=b.x+b.w/2; y2=b.y+b.h+3; d=Math.max(30,(y1-y2)/2); c1x=x1; c1y=y1-d; c2x=x2; c2y=y2+d; }
   return { d:'M'+x1+' '+y1+' C'+c1x+' '+c1y+' '+c2x+' '+c2y+' '+x2+' '+y2, mx:(x1+3*c1x+3*c2x+x2)/8, my:(y1+3*c1y+3*c2y+y2)/8, x2:x2, y2:y2, c2x:c2x, c2y:c2y };
 }
+function flowText(l){ return l.label && l.name ? l.label + ' · ' + l.name : (l.name || l.label || '·'); }
 function renderWires(){
   var r = rects(), p = '', lb = '';
   model.links.forEach(function(l){
@@ -666,7 +680,7 @@ function renderWires(){
     var g = geom(a, b), s = sel && sel.k === 'link' && sel.id === l.id;
     var fade = hl && !(cube(l.from).dims.indexOf(hl) >= 0 && cube(l.to).dims.indexOf(hl) >= 0) ? ' faded' : '';
     p += '<path class="hit" data-link="' + l.id + '" d="' + g.d + '"/><path class="w w-' + l.kind + (s ? ' sel' : '') + fade + '" d="' + g.d + '" marker-end="url(#m-' + l.kind + ')"/>';
-    lb += '<button type="button" class="wl wl-' + l.kind + (s ? ' sel' : '') + fade + '" data-link="' + l.id + '" style="left:' + g.mx + 'px;top:' + g.my + 'px" title="' + esc(KINDS[l.kind].label + (l.desc ? ' — ' + l.desc : '')) + '">' + esc(l.label || '·') + '</button>';
+    lb += '<button type="button" class="wl wl-' + l.kind + (s ? ' sel' : '') + fade + '" data-link="' + l.id + '" style="left:' + g.mx + 'px;top:' + g.my + 'px" title="' + esc(flowText(l) + ' — ' + KINDS[l.kind].label + (l.desc ? ' — ' + l.desc : '') + (readonly ? '' : ' (double-clic pour renommer)')) + '"><span class="wlt">' + esc(flowText(l)) + '</span></button>';
   });
   wg.innerHTML = p; labelsEl.innerHTML = lb;
 }
@@ -711,7 +725,24 @@ function kindSwatch(k){ return '<svg width="26" height="8" aria-hidden="true"><l
 
 function renderRight(){
   var h = '';
-  if (sel && sel.k === 'cube') {
+  if (sel && sel.k === 'cubes') {
+    var cs = sel.ids.map(cube).filter(Boolean);
+    var common = cs.length ? cs[0].dims.filter(function(d){ return cs.every(function(c){ return c.dims.indexOf(d) >= 0; }); }) : [];
+    var anyOpen = cs.some(function(c){ return c.open; });
+    h = '<div class="ph"><div><div class="eyebrow">Sélection</div><div class="ptitle">' + cs.length + ' cubes</div></div></div>' +
+      '<ul class="plist" style="max-height:210px;overflow:auto">' + cs.map(function(c){ return '<li><button type="button" data-sel-cube="' + c.id + '"><span class="ico">' + icon(c.type, 18) + '</span>' + esc(c.name) + '</button></li>'; }).join('') + '</ul>' +
+      '<div class="edit-only"><label class="l" for="f-mtype">Type de tous les cubes</label><select class="field" id="f-mtype"><option value="">Garder leurs types</option>' + opts(TYPES, '') + '</select>' +
+      '<label class="l" for="f-madddim">Ajouter une dimension à tous</label><div class="row"><input class="field" id="f-madddim" list="dl-mdims" placeholder="Nom de la dimension"><button type="button" class="btn sm" data-act="madddim">Ajouter</button></div>' +
+      '<datalist id="dl-mdims">' + model.dims.map(function(d){ return '<option value="' + esc(d.name) + '">'; }).join('') + '</datalist></div>' +
+      '<div class="sect"><div class="sect-h"><span>Dimensions communes (' + common.length + ')</span></div>' +
+      (common.length ? '<ul class="pdims">' + common.map(function(d){ return '<li><span class="pn">' + esc(d) + '</span><button type="button" class="mini edit-only" data-act="mrmdim" data-d="' + esc(d) + '" aria-label="Retirer ' + esc(d) + ' de tous">' + I.x + '</button></li>'; }).join('') + '</ul>' : '<p class="hint" style="margin:0">Aucune dimension partagée par tous ces cubes.</p>') + '</div>' +
+      '<div class="sect"><div class="sect-h"><span>Disposition</span></div><div class="pfoot" style="margin-top:0">' +
+      '<button type="button" class="btn sm" data-act="mfold">' + (anyOpen ? 'Replier' : 'Déplier') + '</button>' +
+      '<button type="button" class="btn sm edit-only" data-act="malign-l">Aligner à gauche</button>' +
+      '<button type="button" class="btn sm edit-only" data-act="malign-t">Aligner en haut</button>' +
+      '<button type="button" class="btn sm edit-only" data-act="mstack">Empiler</button></div></div>' +
+      '<div class="pfoot"><button type="button" class="btn sm" data-act="close">Désélectionner</button><button type="button" class="btn sm danger edit-only" data-act="delmulti">Supprimer ' + cs.length + ' cubes</button></div>';
+  } else if (sel && sel.k === 'cube') {
     var c = cube(sel.id), lk = model.links.filter(function(l){ return l.from === c.id || l.to === c.id; });
     var avail = model.dims.filter(function(d){ return c.dims.indexOf(d.name) < 0; });
     h = '<div class="ph"><span class="ico" id="pico">' + icon(c.type, 34) + '</span><div><div class="eyebrow">Cube</div><div class="ptitle" id="ptitle">' + esc(c.name) + '</div></div></div>' +
@@ -732,12 +763,13 @@ function renderRight(){
       '<div class="sect"><div class="sect-h"><span>Liens (' + lk.length + ')</span></div><ul class="plinks">' +
       (lk.map(function(l){
         var out = l.from === c.id, o = cube(out ? l.to : l.from);
-        return '<li><button type="button" data-sel-link="' + l.id + '"><span class="lb wl-' + l.kind + '">' + esc(l.label) + '</span><span>' + (out ? 'vers ' : 'depuis ') + esc(o.name) + '</span></button></li>';
+        return '<li><button type="button" data-sel-link="' + l.id + '"><span class="lb wl-' + l.kind + '">' + esc(l.label) + '</span><span>' + (l.name ? '<b>' + esc(l.name) + '</b> · ' : '') + (out ? 'vers ' : 'depuis ') + esc(o.name) + '</span></button></li>';
       }).join('') || '<li class="hint">Aucun lien. <span class="edit-only">Glissez le point bleu du cube vers un autre cube.</span></li>') + '</ul></div>' +
       '<div class="pfoot"><button type="button" class="btn sm" data-act="close">Fermer</button><button type="button" class="btn sm danger edit-only" data-act="delcube">Supprimer le cube</button></div>';
   } else if (sel && sel.k === 'link') {
     var l = link(sel.id), a = cube(l.from), b = cube(l.to);
-    h = '<div class="ph"><span class="lb wl-' + l.kind + '" style="font-size:15px">' + esc(l.label || '·') + '</span><div><div class="eyebrow">Lien · ' + esc(KINDS[l.kind].label) + '</div><div class="ptitle">' + esc(a.name) + ' → ' + esc(b.name) + '</div></div></div>' +
+    h = '<div class="ph"><span class="lb wl-' + l.kind + '" style="font-size:15px">' + esc(l.label || '·') + '</span><div><div class="eyebrow">Flux · ' + esc(KINDS[l.kind].label) + '</div><div class="ptitle" id="ptitle">' + esc(l.name || (a.name + ' → ' + b.name)) + '</div></div></div>' +
+      '<label class="l" for="f-lname">Nom du flux</label><input class="field" id="f-lname" data-f="l-name" value="' + esc(l.name) + '" placeholder="Ex. Chargement de la paie"' + dis() + '>' +
       '<label class="l" for="f-lfrom">Cube source</label><select class="field" id="f-lfrom" data-f="l-from"' + dis() + '>' + cubeOpts(l.from) + '</select>' +
       '<label class="l" for="f-lto">Cube cible</label><select class="field" id="f-lto" data-f="l-to"' + dis() + '>' + cubeOpts(l.to) + '</select>' +
       '<label class="l" for="f-lkind">Type de lien</label><select class="field" id="f-lkind" data-f="l-kind"' + dis() + '>' + opts(KINDS, l.kind) + '</select>' +
@@ -772,6 +804,8 @@ function renderRight(){
       '<li class="edit-only">Glisser le point bleu d’un cube vers un autre cube crée un lien.</li>' +
       '<li class="edit-only">Glisser une dimension de la palette sur un cube l’y ajoute.</li>' +
       '<li>Cliquer une dimension surligne les cubes qui l’utilisent.</li>' +
+      '<li class="edit-only">Maj + clic ou Maj + glisser sur le fond sélectionne plusieurs cubes, Ctrl + A les sélectionne tous.</li>' +
+      '<li class="edit-only">Double-cliquer le repère d’un lien pour nommer le flux.</li>' +
       '<li class="edit-only">Suppr efface la sélection, Ctrl + Z annule.</li>' +
       '<li><b>Exporter HTML</b> produit un fichier autonome à partager. Il s’ouvre en lecture et se réimporte ici.</li></ul></div>';
   }
@@ -805,6 +839,7 @@ function addCatalogDim(name){
 }
 function deleteSel(){
   if (!sel || readonly) return;
+  if (sel.k === 'cubes') { var ids = sel.ids.slice(); mutate(function(){ model.cubes = model.cubes.filter(function(c){ return ids.indexOf(c.id) < 0; }); model.links = model.links.filter(function(l){ return ids.indexOf(l.from) < 0 && ids.indexOf(l.to) < 0; }); }); sel = null; renderAll(); toast(ids.length + ' cubes supprimés · Ctrl + Z pour annuler'); return; }
   if (sel.k === 'cube') { var id = sel.id; mutate(function(){ model.cubes = model.cubes.filter(function(c){ return c.id !== id; }); model.links = model.links.filter(function(l){ return l.from !== id && l.to !== id; }); }); }
   else if (sel.k === 'link') { var lid = sel.id; mutate(function(){ model.links = model.links.filter(function(l){ return l.id !== lid; }); }); }
   else if (sel.k === 'dim') { var n = sel.name; mutate(function(){ model.dims = model.dims.filter(function(d){ return d.name !== n; }); model.cubes.forEach(function(c){ c.dims = c.dims.filter(function(x){ return x !== n; }); }); if (hl === n) hl = null; }); }
@@ -819,8 +854,31 @@ vp.addEventListener('pointerdown', function(e){
   var node = e.target.closest('.node');
   if (e.target.closest('[data-act=port]') && !readonly) { startLink(e, node.dataset.id); return; }
   if (node) { startNodeDrag(e, node); return; }
+  if (!readonly && (e.shiftKey || e.ctrlKey || e.metaKey || lassoMode)) { startLasso(e); return; }
   startPan(e);
 });
+var lassoMode = false;
+function startLasso(e){
+  var r0 = vp.getBoundingClientRect(), sx = e.clientX - r0.left, sy = e.clientY - r0.top, moved = false;
+  var base = (e.shiftKey || e.ctrlKey || e.metaKey) ? selIds() : [];
+  var box = document.createElement('div'); box.className = 'lasso'; vp.appendChild(box);
+  vp.setPointerCapture(e.pointerId);
+  function rectNow(ev){ var x = ev.clientX - r0.left, y = ev.clientY - r0.top; return { x:Math.min(x, sx), y:Math.min(y, sy), w:Math.abs(x - sx), h:Math.abs(y - sy) }; }
+  function mv(ev){
+    var r = rectNow(ev); if (!moved && r.w + r.h < 5) return; moved = true;
+    box.style.left = r.x + 'px'; box.style.top = r.y + 'px'; box.style.width = r.w + 'px'; box.style.height = r.h + 'px';
+    var wx0 = (r.x - view.x) / view.k, wy0 = (r.y - view.y) / view.k, wx1 = (r.x + r.w - view.x) / view.k, wy1 = (r.y + r.h - view.y) / view.k, rs = rects();
+    var hit = Object.keys(rs).filter(function(id){ var b = rs[id]; return b.x < wx1 && b.x + b.w > wx0 && b.y < wy1 && b.y + b.h > wy0; });
+    Array.prototype.forEach.call(nodesEl.children, function(n){ n.classList.toggle('sel', base.indexOf(n.dataset.id) >= 0 || hit.indexOf(n.dataset.id) >= 0); });
+    box._hit = hit;
+  }
+  function up(){
+    vp.removeEventListener('pointermove', mv); vp.removeEventListener('pointerup', up); vp.removeEventListener('pointercancel', up);
+    box.remove();
+    if (moved) { suppress = true; setSelIds(base.concat(box._hit || [])); renderAll(); }
+  }
+  vp.addEventListener('pointermove', mv); vp.addEventListener('pointerup', up); vp.addEventListener('pointercancel', up);
+}
 function startPan(e){
   var sx = e.clientX, sy = e.clientY, vx = view.x, vy = view.y, moved = false;
   vp.setPointerCapture(e.pointerId); vp.classList.add('panning');
@@ -829,15 +887,18 @@ function startPan(e){
   vp.addEventListener('pointermove', mv); vp.addEventListener('pointerup', up); vp.addEventListener('pointercancel', up);
 }
 function startNodeDrag(e, el){
-  var c = cube(el.dataset.id), sx = e.clientX, sy = e.clientY, cx = c.x, cy = c.y, moved = false, before = snap();
+  var sx = e.clientX, sy = e.clientY, moved = false, before = snap(), ids = selIds();
+  if (ids.indexOf(el.dataset.id) < 0) ids = [el.dataset.id];
+  var group = ids.map(function(id){ var c = cube(id); return { c:c, x:c.x, y:c.y, el:nodesEl.querySelector('[data-id="' + id + '"]') }; });
   el.setPointerCapture(e.pointerId);
   function mv(ev){
     var dx = (ev.clientX - sx)/view.k, dy = (ev.clientY - sy)/view.k;
     if (!moved && Math.abs(dx) + Math.abs(dy) < 4) return;
     if (readonly) return;
     if (!moved) { moved = true; pushSnap(before); }
-    c.x = Math.round((cx + dx)/10)*10; c.y = Math.round((cy + dy)/10)*10;
-    el.style.left = c.x + 'px'; el.style.top = c.y + 'px'; renderWires();
+    var ddx = Math.round(dx/10)*10, ddy = Math.round(dy/10)*10;
+    group.forEach(function(g){ g.c.x = g.x + ddx; g.c.y = g.y + ddy; if (g.el) { g.el.style.left = g.c.x + 'px'; g.el.style.top = g.c.y + 'px'; } });
+    renderWires();
   }
   function up(){ el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); if (moved) { suppress = true; model.sample = false; save(); $('#btn-undo').disabled = false; } }
   el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
@@ -862,10 +923,28 @@ vp.addEventListener('click', function(e){
   var tg = e.target.closest('[data-act=toggle]'); if (tg) { toggleCube(tg.closest('.node').dataset.id); return; }
   var lk = e.target.closest('[data-link]'); if (lk) { select({k:'link', id:lk.dataset.link}); return; }
   if (e.target.closest('[data-act=port]')) return;
-  var nd = e.target.closest('.node'); if (nd) { select({k:'cube', id:nd.dataset.id}); return; }
+  var nd = e.target.closest('.node');
+  if (nd) { if (e.shiftKey || e.ctrlKey || e.metaKey) toggleInSel(nd.dataset.id); else select({k:'cube', id:nd.dataset.id}); return; }
   sel = null; hl = null; renderAll();
 });
-vp.addEventListener('dblclick', function(e){ var nh = e.target.closest('.nh'); if (nh && !e.target.closest('button')) toggleCube(nh.parentNode.dataset.id); });
+function renameFlow(id){
+  var l = link(id), pill = labelsEl.querySelector('[data-link="' + id + '"]'); if (!l || !pill || readonly) return;
+  var inp = document.createElement('input'); inp.className = 'wl-edit'; inp.value = l.name; inp.placeholder = 'Nom du flux'; inp.setAttribute('aria-label', 'Nom du flux');
+  inp.style.left = pill.style.left; inp.style.top = pill.style.top; labelsEl.appendChild(inp); pill.style.visibility = 'hidden';
+  inp.focus(); inp.select();
+  var done = false;
+  function finish(keep){
+    if (done) return; done = true;
+    var v = inp.value.trim(); inp.remove();
+    if (keep && v !== l.name) { mutate(function(){ l.name = v; }); toast(v ? 'Flux renommé « ' + v + ' »' : 'Nom du flux retiré'); } else renderWires();
+  }
+  inp.addEventListener('keydown', function(e){ e.stopPropagation(); if (e.key === 'Enter') finish(true); if (e.key === 'Escape') finish(false); });
+  inp.addEventListener('blur', function(){ finish(true); });
+  inp.addEventListener('pointerdown', function(e){ e.stopPropagation(); });
+  inp.addEventListener('click', function(e){ e.stopPropagation(); });
+  inp.addEventListener('dblclick', function(e){ e.stopPropagation(); });
+}
+vp.addEventListener('dblclick', function(e){ var wl = e.target.closest('.wl'); if (wl) { e.preventDefault(); renameFlow(wl.dataset.link); return; } var nh = e.target.closest('.nh'); if (nh && !e.target.closest('button')) toggleCube(nh.parentNode.dataset.id); });
 vp.addEventListener('wheel', function(e){
   e.preventDefault();
   var r = vp.getBoundingClientRect();
@@ -1009,6 +1088,7 @@ right.addEventListener('input', function(e){
       if (f === 'l-from') l.from = nv; else l.to = nv; save(); renderNodes(); renderRight(); return;
     case 'l-kind': l.kind = v; save(); renderNodes(); renderRight(); return;
     case 'l-label': l.label = v; renderWires(); break;
+    case 'l-name': l.name = v; $('#ptitle').textContent = v || (cube(l.from).name + ' → ' + cube(l.to).name); renderWires(); break;
     case 'l-desc': l.desc = v; renderWires(); break;
     case 'd-measure': d.measure = v; renderLeft(); if (tab === 'schema') renderNodes(); else renderMatrix(); break;
     case 'd-desc': d.desc = v; break;
@@ -1016,19 +1096,42 @@ right.addEventListener('input', function(e){
   save();
 });
 right.addEventListener('change', function(e){
+  if (e.target.id === 'f-mtype' && e.target.value && sel && sel.k === 'cubes' && !readonly) {
+    var tv = e.target.value, ids = sel.ids.slice();
+    mutate(function(){ ids.forEach(function(id){ var c = cube(id); if (c) c.type = tv; }); });
+    toast(ids.length + ' cubes passés en ' + TYPES[tv].label); return;
+  }
   if (!e.target.dataset || e.target.dataset.f !== 'd-name' || readonly) return;
   var old = sel.name, nv = e.target.value.trim();
   if (!nv || nv === old) { e.target.value = old; return; }
   if (dimObj(nv)) { toast('La dimension « ' + nv + ' » existe déjà'); e.target.value = old; return; }
   mutate(function(){ dimObj(old).name = nv; model.cubes.forEach(function(c){ var i = c.dims.indexOf(old); if (i >= 0) c.dims[i] = nv; }); if (hl === old) hl = nv; sel = {k:'dim', name:nv}; });
 });
-right.addEventListener('keydown', function(e){ if (e.target.id === 'f-adddim' && e.key === 'Enter') { e.preventDefault(); right.querySelector('[data-act=adddim]').click(); } });
+right.addEventListener('keydown', function(e){ if (e.target.id === 'f-madddim' && e.key === 'Enter') { e.preventDefault(); right.querySelector('[data-act=madddim]').click(); return; } if (e.target.id === 'f-adddim' && e.key === 'Enter') { e.preventDefault(); right.querySelector('[data-act=adddim]').click(); } });
 right.addEventListener('click', function(e){
   var sc = e.target.closest('[data-sel-cube]'); if (sc) { select({k:'cube', id:sc.dataset.selCube}); return; }
   var sl = e.target.closest('[data-sel-link]'); if (sl) { select({k:'link', id:sl.dataset.selLink}); return; }
   var b = e.target.closest('[data-act]'); if (!b) return;
   var act = b.dataset.act, c = sel && sel.k === 'cube' ? cube(sel.id) : null;
   if (act === 'close') { sel = null; renderAll(); return; }
+  if (sel && sel.k === 'cubes') {
+    var ms = sel.ids.map(cube).filter(Boolean);
+    if (act === 'mfold') { var open = !ms.some(function(c){ return c.open; }); ms.forEach(function(c){ c.open = open; }); save(); renderAll(); return; }
+    if (readonly) return;
+    if (act === 'madddim') {
+      var dn = ($('#f-madddim').value || '').trim(); if (!dn) return;
+      mutate(function(){ if (!dimObj(dn)) model.dims.push({ name:dn, measure:guessMeasure(dn), desc:'' }); ms.forEach(function(c){ if (c.dims.indexOf(dn) < 0) c.dims.push(dn); }); });
+      toast('« ' + dn + ' » ajoutée à ' + ms.length + ' cubes'); return;
+    }
+    if (act === 'mrmdim') { var rd = b.dataset.d; mutate(function(){ ms.forEach(function(c){ c.dims = c.dims.filter(function(x){ return x !== rd; }); }); }); return; }
+    if (act === 'malign-l') { var mx = Math.min.apply(null, ms.map(function(c){ return c.x; })); mutate(function(){ ms.forEach(function(c){ c.x = mx; }); }); return; }
+    if (act === 'malign-t') { var my = Math.min.apply(null, ms.map(function(c){ return c.y; })); mutate(function(){ ms.forEach(function(c){ c.y = my; }); }); return; }
+    if (act === 'mstack') {
+      var st = ms.slice().sort(function(a, c){ return a.y - c.y || a.x - c.x; }), x0 = Math.min.apply(null, st.map(function(c){ return c.x; })), y = Math.min.apply(null, st.map(function(c){ return c.y; })), r = rects();
+      mutate(function(){ st.forEach(function(c){ c.x = x0; c.y = y; y += ((r[c.id] && r[c.id].h) || estH(c)) + 24; }); }); return;
+    }
+    if (act === 'delmulti') { if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Confirmer la suppression'; return; } deleteSel(); return; }
+  }
   if (act === 'ctoggle') { toggleCube(c.id); return; }
   if (readonly) return;
   if (act === 'newtype') { typeDialog(null, c ? c.id : null); return; }
@@ -1122,6 +1225,7 @@ $('#tab-schema').addEventListener('click', function(){ tab = 'schema'; renderAll
 $('#tab-matrix').addEventListener('click', function(){ tab = 'matrix'; renderAll(); });
 $('#btn-expand').addEventListener('click', function(){ setAllOpen(true); });
 $('#btn-collapse').addEventListener('click', function(){ setAllOpen(false); });
+$('#btn-lasso').addEventListener('click', function(){ lassoMode = !lassoMode; this.setAttribute('aria-pressed', lassoMode); vp.classList.toggle('lassoing', lassoMode); toast(lassoMode ? 'Glissez sur le fond pour encadrer des cubes' : 'Glisser le fond déplace à nouveau la vue'); });
 $('#btn-layout').addEventListener('click', function(){ mutate(function(){ autoLayout(model.cubes); }); fit(); });
 $('#btn-undo').addEventListener('click', doUndo);
 $('#btn-redo').addEventListener('click', doRedo);
@@ -1149,6 +1253,7 @@ document.addEventListener('keydown', function(e){
     var k = e.key.toLowerCase();
     if (k === 'z') { e.preventDefault(); if (e.shiftKey) doRedo(); else doUndo(); return; }
     if (k === 'y') { e.preventDefault(); doRedo(); return; }
+    if (k === 'a' && tab === 'schema') { e.preventDefault(); setSelIds(model.cubes.map(function(c){ return c.id; })); renderAll(); return; }
   }
   if (typing) return;
   if (e.key === 'Escape') { sel = null; hl = null; renderAll(); }
@@ -1304,7 +1409,7 @@ function exportPNG(){
     });
     // link labels
     wires.forEach(function(w){
-      var col = cssVar(KIND_VAR[w.l.kind]), t = w.l.label || '·';
+      var col = cssVar(KIND_VAR[w.l.kind]), t = flowText(w.l);
       ctx.font = '700 11px ' + sans; var bw = Math.max(30, ctx.measureText(t).width + 18);
       rrect(ctx, w.g.mx - bw / 2, w.g.my - 15, bw, 30, 15); ctx.fillStyle = C.panel; ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
       ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t, w.g.mx, w.g.my + .5); ctx.textAlign = 'left';

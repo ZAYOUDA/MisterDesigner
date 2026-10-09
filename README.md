@@ -6,7 +6,8 @@
 
 - Cubes typés (Saisie, Hypothèse, Transco, Calcul, Restitution, Paramètre, Source, Fichier plat, Data warehouse) et types personnalisés
 - Dimensions repliables par cube, catalogue de dimensions avec surlignage des cubes qui les utilisent
-- Liens entre cubes avec repère (R1, F1…) et description
+- Liens entre cubes avec repère (R1, F1…), nom du flux (double-clic sur le repère) et description
+- Sélection multiple (Maj + clic, Maj + glisser, Ctrl + A) : déplacer, changer le type, ajouter une dimension, aligner, supprimer
 - Import d'une matrice Excel « Dims\Cubes » (.xlsx, .csv)
 - Import d'un schéma dessiné avec les formes Excel (cubes, encadrés de dimensions, connecteurs, repères F1/R1, légende de couleurs)
 - Export HTML autonome (partageable, s'ouvre en lecture, réimportable), export JSON et export PNG haute résolution du schéma
