@@ -15,11 +15,21 @@
 - Thème clair, sombre ou automatique
 - Palette et panneau de propriétés masquables, mode « Modèle seul » (Alt+1, Alt+2, Alt+0)
 
+## SharePoint (Microsoft 365)
+
+Quand `public/config.js` contient l'ID client et l'ID de locataire de l'inscription Entra ID « MisterDesigner », un bouton **SharePoint** apparaît : connexion avec le compte Microsoft, navigation dans les dossiers du site, ouverture et enregistrement des modélisations (`.mdesign.json`), envoi automatique des modifications, détection des conflits (eTag), historique des versions, lien de partage `#sp-<id>` qui ouvre directement le modèle pour un collègue ayant accès au dossier.
+
+- Permissions Graph déléguées : `User.Read`, `Sites.Selected` (application autorisée sur le seul site MisterDesigner).
+- Les données vont du navigateur à SharePoint ; Vercel ne sert que le code. Aucun secret.
+- `config.js` vide : l'application reste entièrement locale.
+
 ## Structure
 
 ```
 public/index.html   application complète (HTML + CSS + JS, sans build)
 public/favicon.svg
+public/config.js    configuration SharePoint (ID client, ID locataire, site)
+public/vendor/      MSAL Browser 3.27.0 (connexion Microsoft), servi localement
 vercel.json         sert le dossier public/
 ```
 
