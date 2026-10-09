@@ -61,6 +61,11 @@ button{cursor:pointer}
 .btn:disabled{opacity:.45;cursor:default}
 .btn.danger{color:var(--danger);border-color:var(--danger)}
 .btn.danger.armed{background:var(--danger);color:var(--panel)}
+.panes{display:flex;gap:2px;background:var(--panel-2);border:1px solid var(--line-2);padding:2px;border-radius:7px}
+.panes button{display:inline-flex;align-items:center;gap:5px;border:0;background:transparent;padding:5px 8px;border-radius:5px;font-size:12px;color:var(--ink-3);min-height:30px}
+.panes button[aria-pressed="true"]{background:var(--panel);color:var(--ink);font-weight:600;box-shadow:var(--shadow)}
+@media (max-width:1320px){.panes button span{display:none}}
+.main.hide-left .left,.main.hide-right .right{display:none}
 .themes{display:flex;gap:2px;background:var(--panel-2);border:1px solid var(--line-2);padding:2px;border-radius:7px}
 .themes button{display:inline-flex;align-items:center;gap:5px;border:0;background:transparent;padding:5px 8px;border-radius:5px;font-size:12px;color:var(--ink-2);min-height:30px}
 .themes button[aria-pressed="true"]{background:var(--panel);color:var(--ink);font-weight:600;box-shadow:var(--shadow)}
@@ -256,6 +261,11 @@ textarea.field{resize:vertical;min-height:64px}
     <div class="tabs" role="tablist" aria-label="Vue">
       <button type="button" role="tab" id="tab-schema" aria-selected="true">Schéma</button>
       <button type="button" role="tab" id="tab-matrix" aria-selected="false">Matrice Dims × Cubes</button>
+    </div>
+    <div class="panes" role="group" aria-label="Panneaux">
+      <button type="button" id="pane-left" aria-pressed="true" title="Afficher ou masquer la palette (Alt+1)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M9 4v16"></path></svg><span>Palette</span></button>
+      <button type="button" id="pane-focus" aria-pressed="false" title="Afficher uniquement le modèle (Alt+0)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"></path></svg><span>Modèle seul</span></button>
+      <button type="button" id="pane-right" aria-pressed="true" title="Afficher ou masquer les propriétés (Alt+2)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M15 4v16"></path></svg><span>Propriétés</span></button>
     </div>
     <div class="actions">
       <div class="themes" role="group" aria-label="Thème">
@@ -1321,8 +1331,35 @@ document.querySelector('.themes').addEventListener('click', function(e){
   try { localStorage.setItem(THEME_KEY, theme); } catch(err){}
 });
 
+/* ---------- side panels ---------- */
+var PANES_KEY = 'cubedesigner.panes';
+var panes = { left:true, right:true };
+try { var ps = JSON.parse(localStorage.getItem(PANES_KEY) || 'null'); if (ps) panes = { left:ps.left !== false, right:ps.right !== false }; } catch(e){}
+function applyPanes(save){
+  var m = document.querySelector('.main');
+  m.classList.toggle('hide-left', !panes.left); m.classList.toggle('hide-right', !panes.right);
+  $('#pane-left').setAttribute('aria-pressed', panes.left);
+  $('#pane-right').setAttribute('aria-pressed', panes.right);
+  $('#pane-focus').setAttribute('aria-pressed', !panes.left && !panes.right);
+  if (save) try { localStorage.setItem(PANES_KEY, JSON.stringify(panes)); } catch(e){}
+  if (tab === 'schema') renderWires();
+}
+$('#pane-left').addEventListener('click', function(){ panes.left = !panes.left; applyPanes(true); });
+$('#pane-right').addEventListener('click', function(){ panes.right = !panes.right; applyPanes(true); });
+$('#pane-focus').addEventListener('click', function(){
+  var focus = !panes.left && !panes.right;
+  panes = focus ? { left:true, right:true } : { left:false, right:false };
+  applyPanes(true); requestAnimationFrame(fit);
+});
+document.addEventListener('keydown', function(e){
+  if (!e.altKey || e.ctrlKey || e.metaKey) return;
+  var map = { Digit1:'pane-left', Digit2:'pane-right', Digit0:'pane-focus' }, id = map[e.code];
+  if (id) { e.preventDefault(); $('#' + id).click(); }
+});
+
 /* ---------- boot ---------- */
 model = load();
+applyPanes(false);
 renderAll();
 requestAnimationFrame(fit);
 if (embedded) $('#saved').textContent = 'Fichier partagé';

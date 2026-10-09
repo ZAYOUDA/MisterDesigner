@@ -11,6 +11,7 @@
 - Export HTML autonome (partageable, s'ouvre en lecture, réimportable), export JSON et export PNG haute résolution du schéma
 - Enregistrement automatique dans le navigateur (localStorage), annuler / rétablir
 - Thème clair, sombre ou automatique
+- Palette et panneau de propriétés masquables, mode « Modèle seul » (Alt+1, Alt+2, Alt+0)
 
 ## Structure
 
