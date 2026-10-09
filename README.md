@@ -8,8 +8,9 @@
 - Dimensions repliables par cube, catalogue de dimensions avec surlignage des cubes qui les utilisent
 - Liens entre cubes avec repère (R1, F1…) et description
 - Import d'une matrice Excel « Dims\Cubes » (.xlsx, .csv)
-- Export HTML autonome (partageable, s'ouvre en lecture, réimportable) et export JSON
+- Export HTML autonome (partageable, s'ouvre en lecture, réimportable), export JSON et export PNG haute résolution du schéma
 - Enregistrement automatique dans le navigateur (localStorage), annuler / rétablir
+- Thème clair, sombre ou automatique
 
 ## Structure
 
