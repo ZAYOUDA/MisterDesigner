@@ -41,7 +41,7 @@ button{cursor:pointer}
 #app{height:100%;display:flex;flex-direction:column;min-height:0}
 
 /* top bar */
-.top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
 .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:16px;letter-spacing:-.01em}
 .mtitle{display:flex;align-items:center;gap:10px;padding-left:16px;border-left:1px solid var(--line);min-width:0}
 .eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
@@ -64,12 +64,16 @@ button{cursor:pointer}
 .panes{display:flex;gap:2px;background:var(--panel-2);border:1px solid var(--line-2);padding:2px;border-radius:7px}
 .panes button{display:inline-flex;align-items:center;gap:5px;border:0;background:transparent;padding:5px 8px;border-radius:5px;font-size:12px;color:var(--ink-3);min-height:30px}
 .panes button[aria-pressed="true"]{background:var(--panel);color:var(--ink);font-weight:600;box-shadow:var(--shadow)}
-@media (max-width:1320px){.panes button span{display:none}}
+@media (max-width:1700px){.panes button span{display:none}}
+@media (max-width:1500px){.top .eyebrow{display:none}}
 .main.hide-left .left,.main.hide-right .right{display:none}
 .themes{display:flex;gap:2px;background:var(--panel-2);border:1px solid var(--line-2);padding:2px;border-radius:7px}
 .themes button{display:inline-flex;align-items:center;gap:5px;border:0;background:transparent;padding:5px 8px;border-radius:5px;font-size:12px;color:var(--ink-2);min-height:30px}
 .themes button[aria-pressed="true"]{background:var(--panel);color:var(--ink);font-weight:600;box-shadow:var(--shadow)}
-@media (max-width:1180px){.themes button span{display:none}}
+.themes button span{display:none}
+.themes button{padding:5px 7px}
+.left .types{grid-template-columns:repeat(2,minmax(0,1fr))}
+.types button svg{flex:none}
 .robadge{font-size:12px;color:var(--ink-2);border:1px dashed var(--line);padding:4px 9px;border-radius:12px}
 .ro .edit-only{display:none!important}
 
@@ -278,9 +282,9 @@ textarea.field{resize:vertical;min-height:64px}
       <button type="button" id="btn-new" class="btn edit-only">Nouveau</button>
       <button type="button" id="btn-import" class="btn edit-only" title="Matrice Excel (.xlsx, .csv) ou modèle exporté (.html, .json)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 10l5 5 5-5M4 21h16"></path></svg>Importer</button>
-      <button type="button" id="btn-json" class="btn">Exporter JSON</button>
-      <button type="button" id="btn-png" class="btn" title="Image du schéma en haute résolution">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="M21 15l-5-5L5 21"></path></svg>Exporter PNG</button>
+      <button type="button" id="btn-json" class="btn" title="Exporter le modèle en JSON">JSON</button>
+      <button type="button" id="btn-png" class="btn" title="Exporter le schéma en image PNG haute résolution">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="M21 15l-5-5L5 21"></path></svg>PNG</button>
       <button type="button" id="btn-html" class="btn primary">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M4 21h16"></path></svg>Exporter HTML</button>
     </div>
@@ -849,7 +853,7 @@ nodesEl.addEventListener('drop', function(e){
 
 /* ---------- left panel ---------- */
 function renderTypeBtns(){
-  $('#typebtns').innerHTML = TYPE_ORDER.map(function(t){ return '<button type="button" data-type="' + t + '"' + (TYPES[t].custom ? ' title="Type personnalisé"' : '') + '>' + icon(t, 18) + '<span style="min-width:0;overflow:hidden;text-overflow:ellipsis">' + esc(TYPES[t].label) + '</span></button>'; }).join('') +
+  $('#typebtns').innerHTML = TYPE_ORDER.map(function(t){ return '<button type="button" data-type="' + t + '"' + (TYPES[t].custom ? ' title="Type personnalisé"' : '') + '>' + icon(t, 18) + '<span style="min-width:0;overflow-wrap:anywhere;line-height:1.2">' + esc(TYPES[t].label) + '</span></button>'; }).join('') +
     '<button type="button" class="newtype" data-newtype="1"><span class="plus" aria-hidden="true">+</span>Nouveau type</button>';
 }
 $('#typebtns').addEventListener('click', function(e){
