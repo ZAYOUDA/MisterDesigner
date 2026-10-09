@@ -8,6 +8,7 @@
 - Dimensions repliables par cube, catalogue de dimensions avec surlignage des cubes qui les utilisent
 - Liens entre cubes avec repère (R1, F1…) et description
 - Import d'une matrice Excel « Dims\Cubes » (.xlsx, .csv)
+- Import d'un schéma dessiné avec les formes Excel (cubes, encadrés de dimensions, connecteurs, repères F1/R1, légende de couleurs)
 - Export HTML autonome (partageable, s'ouvre en lecture, réimportable), export JSON et export PNG haute résolution du schéma
 - Enregistrement automatique dans le navigateur (localStorage), annuler / rétablir
 - Thème clair, sombre ou automatique
@@ -21,7 +22,7 @@ public/favicon.svg
 vercel.json         sert le dossier public/
 ```
 
-Dépendances chargées par CDN : SheetJS (lecture Excel) et Google Fonts (IBM Plex).
+Dépendances chargées par CDN : SheetJS (lecture Excel), JSZip (lecture des formes Excel) et Google Fonts (IBM Plex).
 
 ## Lancer en local
 

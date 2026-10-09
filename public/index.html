@@ -358,6 +358,7 @@ textarea.field{resize:vertical;min-height:64px}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script type="application/json" id="cd-model"></script>
 <script id="app-js">
 (function(){
@@ -1042,7 +1043,7 @@ document.addEventListener('keydown', function(e){
 /* ---------- modal / toast ---------- */
 var modalHandler = null;
 function openModal(html, handler){ $('#mbox').innerHTML = html; modalHandler = handler; $('#modal').hidden = false; var f = $('#mbox').querySelector('.primary'); if (f) f.focus(); }
-function closeModal(){ var b = $('#mbox'); $('#modal').hidden = true; b.innerHTML = ''; b.oninput = null; b.onclick = null; modalHandler = null; }
+function closeModal(){ var b = $('#mbox'); $('#modal').hidden = true; b.innerHTML = ''; b.oninput = null; b.onclick = null; modalHandler = null; if (model) syncTypes(model.types); }
 $('#modal').addEventListener('click', function(e){
   if (e.target.id === 'modal') { closeModal(); return; }
   var b = e.target.closest('[data-m]'); if (!b) return;
@@ -1061,6 +1062,7 @@ function buildHTML(){
     '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">' +
     '<style id="app-style">' + STYLE + '</style></head><body>' + SHELL +
     '<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>' +
+    '<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"><\/script>' +
     '<script type="application/json" id="cd-model">' + data + '<\/script>' +
     '<script id="app-js">' + JS + '<\/script></body></html>';
 }
@@ -1201,6 +1203,359 @@ function exportPNG(){
   });
 }
 
+/* ---------- import of diagrams drawn with Excel shapes ---------- */
+var DrawImport = (function(){
+  var EMU_PX = 9525;
+  function ch(el, name){ for (var n = el && el.firstChild; n; n = n.nextSibling) if (n.nodeType === 1 && n.localName === name) return n; return null; }
+  function chs(el, name){ var o = []; for (var n = el && el.firstChild; n; n = n.nextSibling) if (n.nodeType === 1 && (!name || n.localName === name)) o.push(n); return o; }
+  function desc(el, name){ return el ? Array.prototype.slice.call(el.getElementsByTagNameNS('*', name)) : []; }
+  function d1(el, name){ return desc(el, name)[0] || null; }
+  function rid(el, attr){ return el.getAttribute('r:' + attr) || el.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', attr) || ''; }
+  function resolve(base, target){
+    if (target.charAt(0) === '/') return target.slice(1);
+    var parts = base.split('/'); parts.pop();
+    target.split('/').forEach(function(p){ if (p === '..') parts.pop(); else if (p && p !== '.') parts.push(p); });
+    return parts.join('/');
+  }
+  function relsPath(p){ var i = p.lastIndexOf('/'); return p.slice(0, i) + '/_rels/' + p.slice(i + 1) + '.rels'; }
+  function cleanText(s){ return String(s || '').replace(/[ \t]+/g, ' ').replace(/\s+/g, ' ').trim(); }
+
+  function Reader(zip, Parser){
+    var parser = new Parser();
+    this.xml = function(path){ var f = zip.file(path); return f ? f.async('string').then(function(s){ return parser.parseFromString(s, 'application/xml'); }) : Promise.resolve(null); };
+    this.text = function(path){ var f = zip.file(path); return f ? f.async('string') : Promise.resolve(''); };
+    var self = this;
+    this.rels = function(path){
+      return self.xml(relsPath(path)).then(function(doc){
+        var m = {}; if (!doc) return m;
+        desc(doc, 'Relationship').forEach(function(r){ m[r.getAttribute('Id')] = { target: r.getAttribute('TargetMode') === 'External' ? null : resolve(path, r.getAttribute('Target')), type: r.getAttribute('Type') || '' }; });
+        return m;
+      });
+    };
+  }
+
+  function themeColors(doc){
+    var m = {}; var cs = d1(doc, 'clrScheme'); if (!cs) return m;
+    chs(cs).forEach(function(c){ var v = chs(c)[0]; if (!v) return; m[c.localName] = '#' + (v.getAttribute('val') && v.localName === 'srgbClr' ? v.getAttribute('val') : (v.getAttribute('lastClr') || '808080')); });
+    return m;
+  }
+  function colorOf(el){ // first colour child of a fill element
+    if (!el) return null;
+    var c = d1(el, 'srgbClr') || d1(el, 'schemeClr') || d1(el, 'scrgbClr');
+    if (!c) return null;
+    if (c.localName === 'srgbClr') return 'rgb:' + c.getAttribute('val').toUpperCase();
+    if (c.localName === 'schemeClr') return 'scheme:' + c.getAttribute('val');
+    return null;
+  }
+  function fillKey(sp){
+    var spPr = ch(sp, 'spPr');
+    if (spPr) {
+      var sf = ch(spPr, 'solidFill'); if (sf) return colorOf(sf);
+      var gf = ch(spPr, 'gradFill'); if (gf) { var gs = desc(gf, 'gs'); return colorOf(gs[Math.floor(gs.length / 2)] || gs[0]); }
+      if (ch(spPr, 'noFill')) return null;
+    }
+    var st = ch(sp, 'style'), fr = st && ch(st, 'fillRef');
+    if (fr && fr.getAttribute('idx') !== '0') return colorOf(fr);
+    return null;
+  }
+  function hexOf(key, theme){ if (!key) return null; if (key.indexOf('rgb:') === 0) return '#' + key.slice(4); var k = key.slice(7); return theme[k] || ({ tx1:theme.dk1, bg1:theme.lt1, tx2:theme.dk2, bg2:theme.lt2 })[k] || null; }
+
+  function paragraphs(el){
+    var tx = ch(el, 'txBody'); if (!tx) return [];
+    return desc(tx, 'p').map(function(p){
+      return desc(p, 'r').concat(desc(p, 'fld')).map(function(r){
+        var pr = ch(r, 'rPr'), st = pr && pr.getAttribute('strike');
+        if (st && st !== 'noStrike') return '';
+        var t = ch(r, 't'); return t ? t.textContent : '';
+      }).join('');
+    });
+  }
+  function box(el, T){
+    var pr = ch(el, 'spPr') || ch(el, 'grpSpPr'), x = pr && ch(pr, 'xfrm');
+    var off = x && ch(x, 'off'), ext = x && ch(x, 'ext');
+    if (!off || !ext) return null;
+    var a = T(+off.getAttribute('x'), +off.getAttribute('y')), sx = T.sx, sy = T.sy;
+    return { x:a[0], y:a[1], w:+ext.getAttribute('cx') * sx, h:+ext.getAttribute('cy') * sy,
+      flipH:x.getAttribute('flipH') === '1', flipV:x.getAttribute('flipV') === '1', rot:(+x.getAttribute('rot') || 0) / 60000 };
+  }
+  function sheetMetrics(sheet){
+    var cols = [], rows = {}, defW = 64, defH = 20;
+    if (sheet) {
+      var fp = d1(sheet, 'sheetFormatPr');
+      if (fp) {
+        if (fp.getAttribute('defaultColWidth')) defW = Math.floor(+fp.getAttribute('defaultColWidth') * 7 + 5);
+        else if (fp.getAttribute('baseColWidth')) defW = Math.floor((+fp.getAttribute('baseColWidth') + 0.71) * 7 + 5);
+        if (fp.getAttribute('defaultRowHeight')) defH = +fp.getAttribute('defaultRowHeight') * 96 / 72;
+      }
+      desc(sheet, 'col').forEach(function(c){ var w = c.getAttribute('hidden') === '1' ? 0 : Math.floor(+c.getAttribute('width') * 7 + 5); for (var i = +c.getAttribute('min'); i <= +c.getAttribute('max') && i < 2000; i++) cols[i - 1] = w; });
+      desc(sheet, 'row').forEach(function(r){ var i = +r.getAttribute('r') - 1; if (r.getAttribute('hidden') === '1') rows[i] = 0; else if (r.getAttribute('ht')) rows[i] = +r.getAttribute('ht') * 96 / 72; });
+    }
+    var cx = [0], ry = [0];
+    function colX(c){ while (cx.length <= c) { var k = cx.length - 1; cx.push(cx[k] + (cols[k] != null ? cols[k] : defW) * EMU_PX); } return cx[c]; }
+    function rowY(r){ while (ry.length <= r) { var k = ry.length - 1; ry.push(ry[k] + (rows[k] != null ? rows[k] : defH) * EMU_PX); } return ry[r]; }
+    function pt(el){ return [colX(+ch(el, 'col').textContent) + (+ch(el, 'colOff').textContent || 0), rowY(+ch(el, 'row').textContent) + (+ch(el, 'rowOff').textContent || 0)]; }
+    return function(anchor){
+      var f = ch(anchor, 'from'), t = ch(anchor, 'to'), pos = ch(anchor, 'pos'), ext = ch(anchor, 'ext');
+      try {
+        if (f && t) { var a = pt(f), b = pt(t); return { x:a[0], y:a[1], w:b[0] - a[0], h:b[1] - a[1] }; }
+        if (f && ext) { var c = pt(f); return { x:c[0], y:c[1], w:+ext.getAttribute('cx'), h:+ext.getAttribute('cy') }; }
+        if (pos && ext) return { x:+pos.getAttribute('x'), y:+pos.getAttribute('y'), w:+ext.getAttribute('cx'), h:+ext.getAttribute('cy') };
+      } catch (e) {}
+      return null;
+    };
+  }
+  function identity(){ var f = function(x, y){ return [x, y]; }; f.sx = 1; f.sy = 1; return f; }
+
+  function extract(doc, drels, theme, reader, sheet){
+    var items = [], anchorRect = sheetMetrics(sheet);
+    function walk(el, T){
+      chs(el).forEach(function(n){
+        var t = n.localName;
+        if (t === 'grpSp') {
+          var gp = ch(n, 'grpSpPr'), x = gp && ch(gp, 'xfrm');
+          var off = x && ch(x, 'off'), ext = x && ch(x, 'ext'), co = x && ch(x, 'chOff'), ce = x && ch(x, 'chExt');
+          if (off && ext && co && ce) {
+            var sx = (+ext.getAttribute('cx') || 1) / (+ce.getAttribute('cx') || 1), sy = (+ext.getAttribute('cy') || 1) / (+ce.getAttribute('cy') || 1);
+            var ox = +off.getAttribute('x'), oy = +off.getAttribute('y'), cx = +co.getAttribute('x'), cy = +co.getAttribute('y');
+            var T2 = function(px, py){ return T(ox + (px - cx) * sx, oy + (py - cy) * sy); };
+            T2.sx = T.sx * sx; T2.sy = T.sy * sy; walk(n, T2);
+          } else walk(n, T);
+          return;
+        }
+        if (/Anchor$/.test(t)) {
+          var A = anchorRect(n), first = chs(n).filter(function(k){ return /^(sp|cxnSp|pic|grpSp|AlternateContent)$/.test(k.localName); })[0];
+          var inner = first && first.localName === 'AlternateContent' ? d1(first, 'sp') || d1(first, 'grpSp') : first;
+          var fb = inner && box(inner, T);
+          if (A && fb && A.w >= 0 && A.h >= 0) {
+            var dx = (A.x + A.w / 2) - (fb.x + fb.w / 2), dy = (A.y + A.h / 2) - (fb.y + fb.h / 2);
+            var Ts = function(px, py){ var q = T(px, py); return [q[0] + dx, q[1] + dy]; }; Ts.sx = T.sx; Ts.sy = T.sy;
+            walk(n, Ts);
+          } else walk(n, T);
+          return;
+        }
+        if (t !== 'sp' && t !== 'cxnSp' && t !== 'pic') { if (t === 'AlternateContent' || t === 'Choice') walk(n, T); return; }
+        var nv = d1(n, 'cNvPr'), b = box(n, T); if (!nv || !b) return;
+        var g = d1(n, 'prstGeom'), it = { kind:t, id:nv.getAttribute('id'), name:nv.getAttribute('name') || '', prst:g ? g.getAttribute('prst') : '', b:b };
+        if (t === 'sp') { it.paras = paragraphs(n).map(cleanText); it.text = cleanText(it.paras.join(' ')); it.fill = fillKey(n); }
+        if (t === 'cxnSp') {
+          var st = d1(n, 'stCxn'), en = d1(n, 'endCxn'), ln = d1(n, 'ln');
+          it.st = st && st.getAttribute('id'); it.en = en && en.getAttribute('id');
+          var he = ln && ch(ln, 'headEnd'), te = ln && ch(ln, 'tailEnd');
+          it.head = !!(he && he.getAttribute('type') && he.getAttribute('type') !== 'none');
+          it.tail = !!(te && te.getAttribute('type') && te.getAttribute('type') !== 'none');
+        }
+        if (t === 'pic') {
+          var svg = d1(n, 'svgBlip'), blip = d1(n, 'blip');
+          it.media = (svg && drels[rid(svg, 'embed')] || blip && drels[rid(blip, 'embed')] || {}).target || '';
+        }
+        items.push(it);
+      });
+    }
+    walk(doc.documentElement, identity());
+    var picJobs = items.filter(function(it){ return it.kind === 'pic' && /\.svg$/i.test(it.media); }).map(function(it){
+      return reader.text(it.media).then(function(s){ it.svg = s.slice(0, 600); });
+    });
+    return Promise.all(picJobs).then(function(){ return build(items, theme); });
+  }
+
+  function gap(a, b){ var dx = Math.max(0, a.x - (b.x + b.w), b.x - (a.x + a.w)), dy = Math.max(0, a.y - (b.y + b.h), b.y - (a.y + a.h)); return Math.sqrt(dx * dx + dy * dy); }
+  function center(b){ return [b.x + b.w / 2, b.y + b.h / 2]; }
+  function rotPt(p, c, deg){ if (!deg) return p; var r = deg * Math.PI / 180, dx = p[0] - c[0], dy = p[1] - c[1]; return [c[0] + dx * Math.cos(r) - dy * Math.sin(r), c[1] + dx * Math.sin(r) + dy * Math.cos(r)]; }
+  function endpoints(b){
+    var s = [b.flipH ? b.x + b.w : b.x, b.flipV ? b.y + b.h : b.y], e = [b.flipH ? b.x : b.x + b.w, b.flipV ? b.y : b.y + b.h], c = center(b);
+    return [rotPt(s, c, b.rot), rotPt(e, c, b.rot)];
+  }
+  function segDist(p, a, b){ var dx = b[0] - a[0], dy = b[1] - a[1], l = dx * dx + dy * dy, t = l ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l)) : 0; return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); }
+
+  var CYL = /^(can|flowChartMagneticDisk|flowChartMagneticDrum|flowChartOnlineStorage)$/;
+  var DOC = /^(flowChartDocument|flowChartMultidocument|foldedCorner)$/;
+  function isDimLine(s){ return /^\s*\//.test(s); }
+
+  function parseDims(paras){
+    var dims = [], notes = [];
+    paras.forEach(function(raw){
+      var line = cleanText(raw); if (!line) return;
+      if (!isDimLine(line)) { notes.push(line); return; }
+      line.split('/').forEach(function(seg){
+        seg = cleanText(seg); if (!seg) return;
+        var measure = /\(n\)/i.test(seg);
+        var s = cleanText(seg.replace(/\(n\)/gi, ' ').replace(/\s+[x*?]$/i, '').replace(/[?*]+$/, ''));
+        var name = s, note = '';
+        var k = s.indexOf('(');
+        if (k > 0) { name = cleanText(s.slice(0, k)); note = cleanText(s.slice(k)); }
+        name = name.replace(/[\s:;,.-]+$/, '');
+        if (!name) return;
+        dims.push({ name:name, measure:measure, note:note });
+      });
+    });
+    return { dims:dims, notes:notes };
+  }
+
+  var LEGEND_TYPES = [[/restit/i, 'restit'], [/hypoth/i, 'hyp'], [/transco/i, 'transco'], [/param/i, 'param'], [/charg/i, null], [/sais/i, 'saisie'], [/calc|valo/i, 'calc']];
+
+  function build(items, theme){
+    var byId = {}; items.forEach(function(it){ byId[it.id] = it; });
+    var cubes = items.filter(function(it){ return it.kind === 'sp' && it.prst === 'cube' && it.text; });
+    // legend: cubes named "Cube xxx" when there are at least two of them
+    var legendCubes = cubes.filter(function(c){ return /^cube\s+\S/i.test(c.text); });
+    var legend = [];
+    if (legendCubes.length >= 2) {
+      legendCubes.forEach(function(c){
+        var label = cleanText(c.text.replace(/^cube\s+/i, ''));
+        label = label.charAt(0).toUpperCase() + label.slice(1);
+        var type = null;
+        for (var i = 0; i < LEGEND_TYPES.length; i++) if (LEGEND_TYPES[i][0].test(label)) { type = LEGEND_TYPES[i][1]; break; }
+        legend.push({ label:label, fill:c.fill, color:hexOf(c.fill, theme) || '#7B5EA7', type:type });
+      });
+      cubes = cubes.filter(function(c){ return legendCubes.indexOf(c) < 0; });
+    }
+    var nodes = cubes.map(function(c){ return { src:c, ids:[c.id], name:c.text, shape:'cube', fill:c.fill, b:c.b, dims:[], notes:[] }; });
+    items.forEach(function(it){
+      if (it.kind === 'sp' && it.text && (CYL.test(it.prst) || DOC.test(it.prst))) nodes.push({ src:it, ids:[it.id], name:it.text, shape:CYL.test(it.prst) ? 'cyl' : 'file', fill:it.fill, b:it.b, dims:[], notes:[] });
+      if (it.kind === 'sp' && !it.text && (CYL.test(it.prst) || DOC.test(it.prst))) nodes.push({ src:it, ids:[it.id], name:'', shape:CYL.test(it.prst) ? 'cyl' : 'file', b:it.b, dims:[], notes:[], needName:true });
+      if (it.kind === 'pic') {
+        var s = (it.svg || '') + ' ' + it.media + ' ' + it.name;
+        var shape = /database|data_?base|server|cylinder/i.test(s) ? 'cyl' : /document|file|fichier|csv|excel|sheet/i.test(s) ? 'file' : null;
+        if (shape) nodes.push({ src:it, ids:[it.id], name:'', shape:shape, b:it.b, dims:[], notes:[], needName:true });
+      }
+    });
+    var nodeOf = {}; nodes.forEach(function(n){ nodeOf[n.src.id] = n; });
+    var used = {};
+    // dimension boxes
+    var boxes = items.filter(function(it){
+      if (it.kind !== 'sp' || nodeOf[it.id] || !it.paras || /callout/i.test(it.prst)) return false;
+      var dl = it.paras.filter(isDimLine).length; return dl >= 2 || (dl >= 1 && it.paras.filter(function(p){ return p; }).length <= 2);
+    });
+    var cubeNodes = nodes.filter(function(n){ return n.shape === 'cube'; });
+    var assign = [], leftovers = [];
+    boxes.forEach(function(bx){
+      var best = null, bd = Infinity;
+      cubeNodes.forEach(function(n){ var d = gap(bx.b, n.b) + 0.5 * Math.hypot(bx.b.x - (n.b.x + n.b.w * 0.75), bx.b.y - (n.b.y + n.b.h * 0.7)); if (d < bd) { bd = d; best = n; } });
+      if (best && gap(bx.b, best.b) < 1000000) assign.push({ box:bx, node:best, d:bd });
+      else leftovers.push(bx);
+    });
+    assign.sort(function(a, b){ return a.d - b.d; }).forEach(function(a){
+      var p = parseDims(a.box.paras); used[a.box.id] = 1; a.node.ids.push(a.box.id);
+      if (!a.node.dims.length) { a.node.dims = p.dims; a.node.notes = a.node.notes.concat(p.notes); }
+      else a.node.notes.push('Détail : ' + a.box.paras.map(cleanText).filter(Boolean).join(' · '));
+    });
+    leftovers.forEach(function(bx){ // detail boxes sitting next to another cube's dimension box
+      var best = null, bd = Infinity;
+      assign.forEach(function(a){ var d = gap(bx.b, a.box.b); if (d < bd) { bd = d; best = a; } });
+      if (best && bd < 600000) { used[bx.id] = 1; best.node.notes.push('Détail : ' + bx.paras.map(cleanText).filter(Boolean).join(' · ')); }
+    });
+    // name icon/unnamed nodes from the nearest free text box
+    var texts = items.filter(function(it){ return it.kind === 'sp' && it.text && !nodeOf[it.id] && !used[it.id] && !/callout|ellipse/i.test(it.prst) && it.prst !== 'roundRect' && it.text.length < 140; });
+    nodes.filter(function(n){ return n.needName; }).forEach(function(n){
+      var best = null, bd = Infinity;
+      texts.forEach(function(t){ if (used[t.id]) return; var d = gap(t.b, n.b); if (d < bd) { bd = d; best = t; } });
+      if (best && bd < 700000) { n.name = best.text; used[best.id] = 1; n.ids.push(best.id); }
+      if (!n.name) n.name = n.shape === 'file' ? 'Fichier' : 'Source de données';
+    });
+    // links
+    var idNode = {}; nodes.forEach(function(n){ n.ids.forEach(function(i){ idNode[i] = n; }); });
+    function nearestNode(p){ var best = null, bd = Infinity; nodes.forEach(function(n){ var d = gap({ x:p[0], y:p[1], w:0, h:0 }, n.b); if (d < bd) { bd = d; best = n; } }); return bd < 600000 ? best : null; }
+    var links = [], seen = {};
+    items.filter(function(it){ return it.kind === 'cxnSp'; }).forEach(function(c){
+      var ep = endpoints(c.b), a = idNode[c.st] || nearestNode(ep[0]), b = idNode[c.en] || nearestNode(ep[1]);
+      if (!a || !b || a === b) return;
+      if (c.head && !c.tail) { var t = a; a = b; b = t; ep = [ep[1], ep[0]]; }
+      var key = nodes.indexOf(a) + '>' + nodes.indexOf(b); if (seen[key]) return; seen[key] = 1;
+      links.push({ from:a, to:b, seg:ep, b:c.b, label:'' });
+    });
+    // F1 / R2 style markers -> link labels
+    items.filter(function(it){ return it.kind === 'sp' && /^[A-Z]{1,3}\d{1,3}$/.test(it.text || ''); }).forEach(function(m){
+      var p = center(m.b), best = null, bd = Infinity;
+      links.forEach(function(l){ var d = Math.min(gap({ x:p[0], y:p[1], w:0, h:0 }, l.b) * 1.5 + 200000, segDist(p, l.seg[0], l.seg[1])); if (!l.label && d < bd) { bd = d; best = l; } });
+      if (best && bd < 1200000) { best.label = m.text; used[m.id] = 1; }
+    });
+    // remaining free texts become notes on the nearest node, or model notes
+    var modelNotes = [];
+    items.filter(function(it){ return it.kind === 'sp' && it.text && !nodeOf[it.id] && !used[it.id] && legendCubes.indexOf(it) < 0 && !/^[A-Z]{1,3}\d{1,3}$/.test(it.text); }).forEach(function(t){
+      var best = null, bd = Infinity;
+      nodes.forEach(function(n){ var d = gap(t.b, n.b); if (d < bd) { bd = d; best = n; } });
+      if (best && bd < 500000 && t.text.length < 300 && !/callout/i.test(t.prst)) best.notes.push(t.text);
+      else modelNotes.push(t.text);
+    });
+    // the same cube drawn twice is one cube
+    var canonN = function(s){ return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[\s_\-]+/g, ''); };
+    var keep = {}, alias = new Map();
+    nodes.forEach(function(n){
+      var k = n.shape + ':' + canonN(n.name);
+      if (!keep[k]) { keep[k] = n; return; }
+      var m = keep[k]; alias.set(n, m);
+      n.dims.forEach(function(d){ if (!m.dims.some(function(x){ return canonN(x.name) === canonN(d.name); })) m.dims.push(d); });
+      n.notes.forEach(function(t){ if (m.notes.indexOf(t) < 0) m.notes.push(t); });
+    });
+    nodes = nodes.filter(function(n){ return !alias.has(n); });
+    var lseen = {};
+    links = links.filter(function(l){
+      l.from = alias.get(l.from) || l.from; l.to = alias.get(l.to) || l.to;
+      var k = nodes.indexOf(l.from) + '>' + nodes.indexOf(l.to);
+      if (l.from === l.to || lseen[k]) { if (lseen[k] && l.label && !lseen[k].label) lseen[k].label = l.label; return false; }
+      lseen[k] = l; return true;
+    });
+    return { nodes:nodes, links:links, legend:legend, notes:modelNotes };
+  }
+
+  function read(zip, Parser){
+    var R = new Reader(zip, Parser);
+    return Promise.all([R.xml('xl/workbook.xml'), R.rels('xl/workbook.xml'), R.xml('xl/theme/theme1.xml')]).then(function(r){
+      var wb = r[0], wrels = r[1], theme = r[2] ? themeColors(r[2]) : {};
+      if (!wb) return [];
+      var sheets = desc(wb, 'sheet').map(function(s){ var rel = wrels[rid(s, 'id')]; return { name:s.getAttribute('name'), hidden:(s.getAttribute('state') || 'visible') !== 'visible', path:rel && rel.target }; }).filter(function(s){ return s.path; });
+      return Promise.all(sheets.map(function(s){
+        var sheetDoc = null;
+        return Promise.all([R.rels(s.path), R.xml(s.path)]).then(function(z){ var srels = z[0]; sheetDoc = z[1];
+          var dr = Object.keys(srels).map(function(k){ return srels[k]; }).filter(function(x){ return /\/drawing$/.test(x.type) && x.target; })[0];
+          if (!dr) return null;
+          return Promise.all([R.xml(dr.target), R.rels(dr.target)]).then(function(x){
+            if (!x[0]) return null;
+            return extract(x[0], x[1], theme, R, sheetDoc).then(function(res){ res.sheet = s.name; res.hidden = s.hidden; return res; });
+          });
+        });
+      })).then(function(list){ return list.filter(function(x){ return x && x.nodes.length; }); });
+    });
+  }
+
+  /* turn one extracted sheet into model pieces (positions in px) */
+  function toModel(res, opts){
+    var x0 = Infinity, y0 = Infinity, S = (opts && opts.scale) || 1.3;
+    res.nodes.forEach(function(n){ x0 = Math.min(x0, n.b.x); y0 = Math.min(y0, n.b.y); });
+    var keyName = {}, dims = [];
+    function canon(name){ return name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[\s_\-]+/g, ''); }
+    var types = [], legendType = {};
+    res.legend.forEach(function(l){
+      var id = l.type;
+      if (!id) { id = 't_' + canon(l.label).replace(/[^a-z0-9]+/g, '').slice(0, 20); if (!types.some(function(t){ return t.id === id; })) types.push({ id:id, label:l.label, color:l.color, shape:'cube', col:1 }); }
+      if (l.fill) legendType[l.fill] = id;
+    });
+    var cubes = res.nodes.map(function(n, i){
+      var ds = [], notes = n.notes.slice();
+      n.dims.forEach(function(d){
+        var k = canon(d.name); if (!keyName[k]) { keyName[k] = d.name; dims.push({ name:d.name, measure:false, desc:'' }); }
+        var nm = keyName[k]; if (ds.indexOf(nm) < 0) ds.push(nm);
+        if (d.note) notes.push(nm + ' ' + d.note);
+      });
+      var type;
+      if (n.shape === 'cyl') type = 'source';
+      else if (n.shape === 'file') type = 'file';
+      else if (/transco/i.test(n.name)) type = 'transco';
+      else if (/^z?_?adm|param/i.test(n.name)) type = 'param';
+      else if (n.fill && legendType[n.fill]) type = legendType[n.fill];
+      else type = null;
+      return { id:'x' + i, name:n.name, type:type, x:Math.round(((n.b.x - x0) / EMU_PX) * S / 10) * 10 + 40, y:Math.round(((n.b.y - y0) / EMU_PX) * S / 10) * 10 + 40, open:false, desc:notes.join('\n'), dims:ds };
+    });
+    var links = res.links.map(function(l){
+      var lab = l.label || '', kind = /^F/i.test(lab) ? 'ti' : /^V/i.test(lab) ? 'read' : 'rule';
+      return { from:'x' + res.nodes.indexOf(l.from), to:'x' + res.nodes.indexOf(l.to), kind:kind, label:lab, desc:'' };
+    });
+    return { cubes:cubes, links:links, dims:dims, types:types, notes:res.notes };
+  }
+
+  return { read:read, toModel:toModel };
+})();
+
 /* ---------- import ---------- */
 $('#file').addEventListener('change', function(e){
   var f = e.target.files && e.target.files[0]; if (!f) return;
@@ -1223,11 +1578,18 @@ $('#file').addEventListener('change', function(e){
   } else if (ext === 'xlsx' || ext === 'xls' || ext === 'xlsm') {
     if (!window.XLSX) { toast('La lecture Excel nécessite une connexion internet. Enregistrez la feuille en CSV pour importer hors ligne.'); return; }
     rd.onload = function(){
+      var sheets = {}, buf = rd.result;
       try {
-        var wb = window.XLSX.read(new Uint8Array(rd.result), { type:'array' }), sheets = {};
+        var wb = window.XLSX.read(new Uint8Array(buf), { type:'array' });
         wb.SheetNames.forEach(function(n){ sheets[n] = window.XLSX.utils.sheet_to_json(wb.Sheets[n], { header:1, defval:'', raw:false, blankrows:true }); });
-        excelDialog(f.name, base, sheets);
-      } catch (err) { toast('Impossible de lire ce classeur Excel'); }
+      } catch (err) { toast('Impossible de lire ce classeur Excel'); return; }
+      var hasMatrix = Object.keys(sheets).some(function(n){ return parseMatrix(sheets[n]).found; });
+      var matrix = function(){ excelDialog(f.name, base, sheets); };
+      if (!window.JSZip || !/xlsx|xlsm/.test(ext)) { matrix(); return; }
+      toast('Analyse du classeur…');
+      window.JSZip.loadAsync(buf).then(function(zip){ return DrawImport.read(zip, window.DOMParser); }).then(function(list){
+        if (list.length) drawingDialog(f.name, base, list, hasMatrix ? matrix : null); else matrix();
+      }, function(){ matrix(); });
     };
     rd.readAsArrayBuffer(f);
   } else toast('Format non pris en charge : .xlsx, .csv, .html ou .json');
@@ -1271,6 +1633,70 @@ function parseMatrix(rows){
     cols.forEach(function(col){ if (isMark((rows[r] || [])[col.c])) { col.dims.push(dn); marks++; } });
   }
   return { cubes: cols.map(function(x){ return { name:x.name, dims:x.dims }; }), dims:dims, marks:marks, found:found };
+}
+function drawingDialog(fileName, base, list, matrixFallback){
+  var idx = 0;
+  list.forEach(function(r, i){ if (!r.hidden && list[idx].hidden) idx = i; });
+  var dm, types, mode = (!model.cubes.length || model.sample) ? 'replace' : 'merge';
+  function compute(){
+    dm = DrawImport.toModel(list[idx], { scale:1.4 });
+    dm.types.forEach(function(t){ var ex = model.types.filter(function(x){ return x.label.toLowerCase() === t.label.toLowerCase(); })[0]; if (ex) { dm.cubes.forEach(function(c){ if (c.type === t.id) c.type = ex.id; }); t.existing = ex.id; } });
+    syncTypes(model.types.concat(dm.types.filter(function(t){ return !t.existing; })));
+    types = dm.cubes.map(function(c){ return c.type || guessType(c.name); });
+  }
+  function draw(){
+    var r = list[idx], nd = dm.cubes.filter(function(c){ return c.dims.length; }).length;
+    var html = '<div class="mhead"><div class="eyebrow">Import Excel · schéma dessiné</div><h2>Schéma de conception</h2><p class="hint" style="margin-top:4px">' + esc(fileName) + '</p></div><div class="mbody">' +
+      (list.length > 1 ? '<label class="l" for="m-dsheet" style="display:block;font-size:12px;color:var(--ink-2);margin-bottom:4px">Feuille</label><select id="m-dsheet" class="field">' + list.map(function(x, i){ return '<option value="' + i + '"' + (i === idx ? ' selected' : '') + '>' + esc(x.sheet) + (x.hidden ? ' (masquée)' : '') + '</option>'; }).join('') + '</select>' : '') +
+      '<div class="detect"><span><b>' + dm.cubes.length + '</b> cubes et sources</span><span><b>' + nd + '</b> avec dimensions</span><span><b>' + dm.dims.length + '</b> dimensions</span><span><b>' + dm.links.length + '</b> liens</span></div>' +
+      (dm.types.length ? '<p class="hint" style="margin:0 0 10px">Légende reconnue : ' + list[idx].legend.map(function(l){ return '<b>' + esc(l.label) + '</b>'; }).join(', ') + '. Les couleurs des cubes servent à choisir leur type' + (dm.types.some(function(t){ return !t.existing; }) ? ', et le type « ' + esc(dm.types.filter(function(t){ return !t.existing; }).map(function(t){ return t.label; }).join(' », « ')) + ' » sera créé.' : '.') + '</p>' : '') +
+      '<div class="prev"><table><thead><tr><th>Cube</th><th>Type</th><th>Dims</th></tr></thead><tbody>' +
+      dm.cubes.map(function(c, i){ return '<tr><td>' + esc(c.name) + '</td><td><select data-ti="' + i + '" aria-label="Type de ' + esc(c.name) + '">' + opts(TYPES, types[i]) + '</select></td><td class="n">' + (c.dims.length || '–') + '</td></tr>'; }).join('') + '</tbody></table></div>' +
+      '<fieldset class="opts"><legend>Que faire du modèle actuel ?</legend>' +
+      '<label><input type="radio" name="m-mode" value="replace"' + (mode === 'replace' ? ' checked' : '') + '><span>Remplacer le modèle<small>Reprend le schéma Excel tel qu’il est placé, avec ses liens et ses repères.</small></span></label>' +
+      '<label><input type="radio" name="m-mode" value="merge"' + (mode === 'merge' ? ' checked' : '') + '><span>Fusionner<small>Met à jour les cubes de même nom, ajoute les nouveaux sous le schéma actuel, complète les liens.</small></span></label></fieldset>' +
+      (dm.notes.length ? '<p class="hint">Les textes libres du schéma (' + dm.notes.length + ') sont repris dans la description du modèle.</p>' : '') +
+      '</div><div class="mfoot">' + (matrixFallback ? '<button type="button" class="btn" data-m="matrix" style="margin-right:auto">Importer plutôt la matrice Dims × Cubes</button>' : '') +
+      '<button type="button" class="btn" data-m="cancel">Annuler</button><button type="button" class="btn primary" data-m="import">Importer ' + dm.cubes.length + ' cubes</button></div>';
+    $('#mbox').innerHTML = html;
+    var s = $('#m-dsheet'); if (s) s.addEventListener('change', function(e){ idx = +e.target.value; compute(); draw(); });
+    $('#mbox').querySelectorAll('[data-ti]').forEach(function(el){ el.addEventListener('change', function(){ types[+el.dataset.ti] = el.value; }); });
+    $('#mbox').querySelectorAll('[name=m-mode]').forEach(function(el){ el.addEventListener('change', function(){ mode = el.value; }); });
+  }
+  compute();
+  openModal('', function(act){
+    if (act === 'matrix') { syncTypes(model.types); closeModal(); matrixFallback(); return; }
+    if (act !== 'import') return;
+    var newTypes = dm.types.filter(function(t){ return !t.existing && types.indexOf(t.id) >= 0; }).map(function(t){ return { id:t.id, label:t.label, color:t.color, shape:t.shape, col:t.col }; });
+    var ids = {}, cubes = dm.cubes.map(function(c, i){ var id = uid('c'); ids[c.id] = id; return { id:id, name:c.name, type:types[i], x:c.x, y:c.y, open:false, desc:c.desc, dims:c.dims.slice() }; });
+    var links = dm.links.map(function(l){ return { id:uid('l'), from:ids[l.from], to:ids[l.to], kind:l.kind, label:l.label, desc:'' }; });
+    var notes = dm.notes.length ? 'Notes du schéma Excel :\n' + dm.notes.join('\n') : '';
+    var sheetName = list[idx].sheet, added = 0;
+    mutate(function(){
+      var allTypes = model.types.concat(newTypes.filter(function(t){ return !model.types.some(function(x){ return x.id === t.id; }); }));
+      if (mode === 'replace') {
+        model = normalize({ name:sheetName, desc:notes, types:allTypes, dims:dm.dims.map(function(d){ return { name:d.name, measure:guessMeasure(d.name) }; }), cubes:cubes, links:links });
+        added = cubes.length;
+      } else {
+        model.types = allTypes; syncTypes(model.types);
+        dm.dims.forEach(function(d){ if (!dimObj(d.name)) model.dims.push({ name:d.name, measure:guessMeasure(d.name), desc:'' }); });
+        var y0 = model.cubes.reduce(function(m, c){ return Math.max(m, c.y + estH(c)); }, 0) + 160, remap = {};
+        cubes.forEach(function(c){
+          var ex = model.cubes.filter(function(x){ return x.name.toLowerCase().replace(/\s+/g, ' ') === c.name.toLowerCase().replace(/\s+/g, ' '); })[0];
+          if (ex) { remap[c.id] = ex.id; if (c.dims.length) ex.dims = c.dims; if (c.desc && ex.desc.indexOf(c.desc) < 0) ex.desc = (ex.desc ? ex.desc + '\n' : '') + c.desc; }
+          else { c.y += y0; model.cubes.push(c); added++; }
+        });
+        links.forEach(function(l){
+          l.from = remap[l.from] || l.from; l.to = remap[l.to] || l.to;
+          if (l.from !== l.to && !model.links.some(function(x){ return x.from === l.from && x.to === l.to; })) model.links.push(l);
+        });
+        if (notes) model.desc = (model.desc ? model.desc + '\n\n' : '') + notes;
+      }
+    });
+    sel = null; hl = null; closeModal(); tab = 'schema'; renderAll(); fit();
+    toast(mode === 'replace' ? cubes.length + ' cubes et ' + links.length + ' liens importés depuis « ' + sheetName + ' »' : added + ' cubes ajoutés, ' + (cubes.length - added) + ' mis à jour');
+  });
+  draw();
 }
 function excelDialog(fileName, base, sheets){
   var names = Object.keys(sheets);
