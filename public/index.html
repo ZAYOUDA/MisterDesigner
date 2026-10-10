@@ -57,6 +57,19 @@ button{cursor:pointer}
 .pmeta{font-size:12px;color:var(--ink-3);margin-top:2px}
 .pbadge{font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);margin-left:6px}
 .pacts{display:flex;gap:6px;flex-wrap:wrap}
+.menuwrap{position:relative}
+.menu{position:absolute;right:0;top:calc(100% + 6px);z-index:40;width:340px;max-width:calc(100vw - 32px);background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 32px rgba(10,16,24,.18);padding:6px}
+.menu [role=menuitem]{display:flex;gap:12px;align-items:flex-start;width:100%;border:0;background:transparent;text-align:left;padding:9px 10px;border-radius:7px;color:var(--ink)}
+.menu [role=menuitem]:hover,.menu [role=menuitem]:focus-visible{background:var(--panel-2);outline:none}
+.mi-ic{flex:none;width:32px;height:32px;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:inline-flex;align-items:center;justify-content:center}
+.mi-t{display:block;font-weight:600;font-size:13.5px}
+.mi-d{display:block;font-size:12px;color:var(--ink-3);margin-top:1px;line-height:1.35}
+.msep{height:1px;background:var(--line-2);margin:6px 4px}
+.avatar{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-weight:600;letter-spacing:.02em;flex:none}
+.profbtn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--panel);border-radius:20px;padding:3px 12px 3px 3px;min-height:34px;font-size:13px;color:var(--ink);max-width:200px}
+.profbtn:hover{border-color:var(--ink-3)}
+.pfname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:1500px){.pfname{display:none}.profbtn{padding:3px}}
 .pbadge.sp{color:var(--w-read)}
 .spdot{width:8px;height:8px;border-radius:50%;background:var(--line);flex:none}
 .spdot.ok{background:var(--ok)} .spdot.warn{background:var(--hl)} .spdot.bad{background:var(--danger)} .spdot.busy{background:var(--accent);animation:sppulse 1s infinite alternate}
@@ -306,11 +319,19 @@ textarea.field{resize:vertical;min-height:64px}
       <button type="button" id="btn-new" class="btn edit-only">Nouveau</button>
       <button type="button" id="btn-import" class="btn edit-only" title="Matrice Excel (.xlsx, .csv) ou modèle exporté (.html, .json)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 10l5 5 5-5M4 21h16"></path></svg>Importer</button>
-      <button type="button" id="btn-json" class="btn" title="Exporter le modèle en JSON">JSON</button>
-      <button type="button" id="btn-png" class="btn" title="Exporter le schéma en image PNG haute résolution">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="M21 15l-5-5L5 21"></path></svg>PNG</button>
-      <button type="button" id="btn-html" class="btn primary">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M4 21h16"></path></svg>Exporter HTML</button>
+      <div class="menuwrap">
+        <button type="button" id="btn-export" class="btn primary" aria-haspopup="menu" aria-expanded="false" aria-controls="export-menu">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M4 21h16"></path></svg>Exporter
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+        <div class="menu" id="export-menu" role="menu" aria-label="Format d'export" hidden>
+          <button type="button" role="menuitem" data-exp="html"><span class="mi-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"></path></svg></span><span><span class="mi-t">Page HTML</span><span class="mi-d">À partager : s'ouvre dans un navigateur, en lecture, et se réimporte</span></span></button>
+          <button type="button" role="menuitem" data-exp="png"><span class="mi-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="M21 15l-5-5L5 21"></path></svg></span><span><span class="mi-t">Image PNG</span><span class="mi-d">Le schéma en haute résolution, pour Word, PowerPoint ou un e-mail</span></span></button>
+          <button type="button" role="menuitem" data-exp="json"><span class="mi-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H6a2 2 0 0 0-2 2v4a2 2 0 0 1-2 2 2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h2M16 3h2a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2 2 2 0 0 0-2 2v4a2 2 0 0 1-2 2h-2"></path></svg></span><span><span class="mi-t">Fichier JSON</span><span class="mi-d">Les données du projet, pour sauvegarder ou réimporter</span></span></button>
+          <div class="msep edit-only" role="separator"></div>
+          <button type="button" role="menuitem" data-exp="backup" class="edit-only" id="exp-backup"><span class="mi-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"></path></svg></span><span><span class="mi-t">Sauvegarde du profil</span><span class="mi-d">Tous mes projets dans un seul fichier, pour changer de PC</span></span></button>
+        </div>
+      </div>
+      <button type="button" id="btn-profile" class="profbtn" hidden></button>
     </div>
   </header>
 
@@ -482,7 +503,7 @@ function guessMeasure(name){ return /^(mesures?|measures?|indic|m_)/i.test(name)
 /* ---------- model ---------- */
 function normalize(m){
   m = m || {};
-  var out = { v:1, id: m.id || uid('m'), name: String(m.name || 'Modèle sans titre'), desc: String(m.desc || ''), updated: m.updated || '', sample: !!m.sample };
+  var out = { v:1, id: m.id || uid('m'), name: String(m.name || 'Modèle sans titre'), desc: String(m.desc || ''), updated: m.updated || '', sample: !!m.sample, author: String(m.author || ''), updatedBy: String(m.updatedBy || '') };
   var tids = {};
   out.types = (Array.isArray(m.types) ? m.types : []).filter(function(t){ return t && t.id && t.label && !BUILTIN[t.id] && !tids[t.id] && (tids[t.id] = 1); })
     .map(function(t){ return { id:String(t.id), label:String(t.label), color:/^#[0-9a-f]{6}$/i.test(t.color) ? t.color : '#7B5EA7', shape:shapeOk(t.shape), col:clamp(+t.col || 0, 0, 3) }; });
@@ -551,12 +572,163 @@ var model, sel = null, hl = null, tab = 'schema', view = {x:40,y:30,k:1};
 var undo = [], redo = [], pending = null, suppress = false, linkKind = 'rule';
 var restoredMsg = '';
 
-var PKEY = 'cubedesigner.projects.v1', CUR = 'cubedesigner.current', PFX = 'cubedesigner.p.';
+/* ---------- profiles (one per person, stored in this browser on this PC) ---------- */
+var PROF_LIST = 'cubedesigner.profiles', PROF_CUR = 'cubedesigner.profile';
+var PROF_COLORS = ['#1D5C8A', '#7347C1', '#B8611A', '#2D8638', '#B3261E', '#0F7B83', '#8A4F7D', '#5C6B1F'];
+var PKEY, CUR, PFX, THEME_KEY, PANES_KEY, profile = null, profileFirstRun = false;
+function profBase(id){ return id === 'default' ? 'cubedesigner.' : 'cubedesigner.u.' + id + '.'; }
+function setKeys(id){ var b = profBase(id); PKEY = b + 'projects.v1'; CUR = b + 'current'; PFX = b + 'p.'; THEME_KEY = b + 'theme'; PANES_KEY = b + 'panes'; }
+function profList(){ try { var l = JSON.parse(lsGet(PROF_LIST) || '[]'); return Array.isArray(l) ? l.filter(function(p){ return p && p.id; }) : []; } catch(e){ return []; } }
+function saveProfList(l){ lsSet(PROF_LIST, JSON.stringify(l)); }
+function profName(p){ p = p || profile; return (p && p.name) || 'Mon profil'; }
+function profInitials(p){ var w = profName(p).trim().split(/\s+/); return ((w[0] || '?').charAt(0) + (w.length > 1 ? w[w.length - 1].charAt(0) : '')).toUpperCase(); }
+function profAvatar(p, size){ size = size || 28; return '<span class="avatar" aria-hidden="true" style="width:' + size + 'px;height:' + size + 'px;font-size:' + Math.round(size * 0.4) + 'px;background:' + PROF_COLORS[((p && p.color) || 0) % PROF_COLORS.length] + '">' + esc(profInitials(p)) + '</span>'; }
+function profProjects(id){ try { var l = JSON.parse(lsGet(profBase(id) + 'projects.v1') || '[]'); return Array.isArray(l) ? l.length : 0; } catch(e){ return 0; } }
+function profStorageKeys(id){
+  var out = [];
+  try {
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (id === 'default' ? (k.indexOf('cubedesigner.p.') === 0 || ['cubedesigner.projects.v1', 'cubedesigner.current', 'cubedesigner.theme', 'cubedesigner.panes', 'cubedesigner.model.v1'].indexOf(k) >= 0)
+                           : k.indexOf('cubedesigner.u.' + id + '.') === 0) out.push(k);
+    }
+  } catch(e){}
+  return out;
+}
+(function initProfile(){
+  if (embedded) { setKeys('default'); return; }
+  var l = profList();
+  if (!l.length) { l = [{ id:'default', name:'', color:0, created:new Date().toISOString(), last:new Date().toISOString() }]; saveProfList(l); }
+  var cur = lsGet(PROF_CUR), p = l.filter(function(x){ return x.id === cur; })[0];
+  if (!p) p = l.slice().sort(function(a, b){ return String(b.last).localeCompare(String(a.last)); })[0];
+  profile = p; lsSet(PROF_CUR, p.id); setKeys(p.id);
+  profileFirstRun = !p.name;
+})();
+function updateProfile(patch){
+  var l = profList(), i = l.findIndex(function(x){ return x.id === profile.id; });
+  Object.keys(patch).forEach(function(k){ profile[k] = patch[k]; });
+  if (i >= 0) l[i] = profile; else l.push(profile);
+  saveProfList(l); renderProfileBtn();
+}
+function renderProfileBtn(){
+  var b = $('#btn-profile'); if (!b) return;
+  b.hidden = !!embedded || !profile; if (b.hidden) return;
+  b.innerHTML = profAvatar(profile, 26) + '<span class="pfname">' + esc(profName()) + '</span>';
+  b.title = 'Profil : ' + profName() + ' · changer ou créer un profil';
+}
+function switchProfile(id){
+  var p = profList().filter(function(x){ return x.id === id; })[0]; if (!p) return;
+  if (model && !model.sample) save();
+  profile = p; lsSet(PROF_CUR, id); setKeys(id); updateProfile({ last:new Date().toISOString() });
+  try { theme = localStorage.getItem(THEME_KEY) || 'light'; } catch(e){ theme = 'light'; }
+  applyTheme(theme);
+  try { var ps = JSON.parse(localStorage.getItem(PANES_KEY) || 'null'); panes = ps ? { left:ps.left !== false, right:ps.right !== false } : { left:true, right:true }; } catch(e){ panes = { left:true, right:true }; }
+  model = load(); undo = []; redo = []; sel = null; hl = null; tab = 'schema';
+  applyPanes(false); renderAll(); requestAnimationFrame(fit);
+  $('#saved').textContent = model.sample ? 'Exemple' : 'Enregistré · ' + fmtDate(model.updated).slice(-5);
+  toast('Profil « ' + profName() + ' » ouvert');
+}
+function colorPicker(sel){
+  return '<div class="swatches" role="radiogroup" aria-label="Couleur du profil">' + PROF_COLORS.map(function(c, i){ return '<button type="button" class="sw' + (i === sel ? ' on' : '') + '" data-pcolor="' + i + '" style="background:' + c + '" role="radio" aria-checked="' + (i === sel) + '" aria-label="Couleur ' + (i + 1) + '"></button>'; }).join('') + '</div>';
+}
+function welcomeDialog(){
+  var n = profProjects(profile.id), color = profile.color || 0;
+  openModal('<div class="mhead"><div class="eyebrow">Bienvenue dans MisterDesigner</div><h2>Créez votre profil</h2></div><div class="mbody">' +
+    '<p style="margin-top:0">Votre profil regroupe vos projets, votre thème et votre disposition sur ce PC. Chaque personne qui utilise ce PC peut créer le sien.</p>' +
+    '<label class="l" for="w-name">Votre nom</label><input id="w-name" class="field" placeholder="Ex. Zied Ben Hmida" autocomplete="name">' +
+    '<span class="l" style="display:block;font-size:12px;color:var(--ink-2);margin:12px 0 6px">Couleur</span>' + colorPicker(color) +
+    (n ? '<p class="note">Vos ' + n + ' projet' + (n > 1 ? 's' : '') + ' déjà enregistré' + (n > 1 ? 's' : '') + ' sur ce PC ser' + (n > 1 ? 'ont rattachés' : 'a rattaché') + ' à ce profil.</p>' : '') +
+    '<p class="err" id="w-err" hidden>Saisissez votre nom.</p></div>' +
+    '<div class="mfoot"><button type="button" class="btn primary" data-m="ok">Créer mon profil</button></div>',
+    function(act, b){
+      if (b && b.dataset.pcolor != null) return;
+      if (act !== 'ok') return;
+      var nm = ($('#w-name').value || '').trim(); if (!nm) { $('#w-err').hidden = false; $('#w-name').focus(); return; }
+      updateProfile({ name:nm, color:color }); profileFirstRun = false; closeModal(); renderAll();
+      toast('Bienvenue ' + nm.split(' ')[0] + ' !');
+    });
+  var box = $('#mbox');
+  box.onclick = function(e){ var s = e.target.closest('[data-pcolor]'); if (!s) return; color = +s.dataset.pcolor; box.querySelectorAll('[data-pcolor]').forEach(function(x){ x.classList.toggle('on', x === s); x.setAttribute('aria-checked', x === s); }); };
+  box.oninput = null;
+  $('#w-name').addEventListener('keydown', function(e){ if (e.key === 'Enter') box.querySelector('[data-m=ok]').click(); });
+  var f = $('#w-name'); if (f) f.focus();
+}
+function profilesDialog(){
+  var color = profile.color || 0;
+  function others(){
+    var l = profList().filter(function(p){ return p.id !== profile.id; }).sort(function(a, b){ return String(b.last).localeCompare(String(a.last)); });
+    return l.map(function(p){
+      var n = profProjects(p.id);
+      return '<li class="prow"><div class="pinfo" style="display:flex;gap:10px;align-items:center">' + profAvatar(p, 32) + '<div><div class="pname">' + esc(profName(p)) + '</div><div class="pmeta">' + n + ' projet' + (n > 1 ? 's' : '') + (p.last ? ' · utilisé le ' + esc(fmtDate(p.last)) : '') + '</div></div></div>' +
+        '<div class="pacts"><button type="button" class="btn sm" data-m="switch" data-pid="' + esc(p.id) + '">Ouvrir</button><button type="button" class="btn sm danger" data-m="del" data-pid="' + esc(p.id) + '">Supprimer</button></div></li>';
+    }).join('') || '<li class="hint" style="padding:10px 12px">Aucun autre profil sur ce PC.</li>';
+  }
+  var n0 = projIndex().length;
+  openModal('<div class="mhead"><div class="eyebrow">Sur ce PC</div><h2>Profils</h2></div><div class="mbody">' +
+    '<div class="spcur" style="align-items:flex-start"><div style="display:flex;gap:12px;align-items:center;flex:1 1 260px;min-width:0">' + '<span id="pf-av">' + profAvatar(profile, 44) + '</span>' +
+    '<div style="flex:1;min-width:0"><div class="eyebrow">Profil ouvert · ' + n0 + ' projet' + (n0 > 1 ? 's' : '') + '</div><label class="l" for="pf-name" style="margin-top:4px">Nom</label><div class="row"><input id="pf-name" class="field" value="' + esc(profile.name) + '"><button type="button" class="btn sm" data-m="rename">Renommer</button></div></div></div>' +
+    '<div style="flex:1 1 100%">' + colorPicker(color) + '</div></div>' +
+    '<div class="sect-h" style="margin-top:6px"><span>Autres profils</span></div><ul class="projlist" id="pf-list">' + others() + '</ul>' +
+    '<div class="sect-h" style="margin-top:16px"><span>Nouveau profil</span></div><div class="row"><input id="pf-new" class="field" placeholder="Nom de la personne" aria-label="Nom du nouveau profil"><button type="button" class="btn sm primary" data-m="create">Créer et ouvrir</button></div>' +
+    '<div class="sect-h" style="margin-top:16px"><span>Sauvegarde</span></div>' +
+    '<p class="hint" style="margin:0 0 8px">Pour changer de PC ou garder une copie : un seul fichier avec tous les projets de ce profil. On le recharge avec <b>Importer</b>.</p>' +
+    '<div class="pacts"><button type="button" class="btn sm" data-m="backup">Sauvegarder mes ' + n0 + ' projets</button><button type="button" class="btn sm" data-m="restore">Restaurer une sauvegarde</button></div>' +
+    '<p class="hint" style="margin-top:14px">Les profils restent dans ce navigateur, sur ce PC. Ils ne sont pas protégés par mot de passe : toute personne qui utilise la même session Windows peut les ouvrir.</p></div>' +
+    '<div class="mfoot"><button type="button" class="btn" data-m="cancel">Fermer</button></div>',
+    function(act, b){
+      if (act === 'rename') { var nm = ($('#pf-name').value || '').trim(); if (!nm) return; updateProfile({ name:nm }); $('#pf-av').innerHTML = profAvatar(profile, 44); toast('Profil renommé « ' + nm + ' »'); return; }
+      if (act === 'switch') { closeModal(); switchProfile(b.dataset.pid); return; }
+      if (act === 'create') {
+        var nn = ($('#pf-new').value || '').trim(); if (!nn) { $('#pf-new').focus(); return; }
+        if (profList().some(function(p){ return profName(p).toLowerCase() === nn.toLowerCase(); })) { toast('Un profil « ' + nn + ' » existe déjà sur ce PC'); return; }
+        var p = { id:uid('u'), name:nn, color:profList().length % PROF_COLORS.length, created:new Date().toISOString(), last:new Date().toISOString() };
+        var l = profList(); l.push(p); saveProfList(l); closeModal(); switchProfile(p.id); return;
+      }
+      if (act === 'del') {
+        if (!b.classList.contains('armed')) { var cnt = profProjects(b.dataset.pid); b.classList.add('armed'); b.textContent = cnt ? 'Supprimer ' + cnt + ' projet' + (cnt > 1 ? 's' : '') + ' ?' : 'Confirmer'; return; }
+        var id = b.dataset.pid, gone = profList().filter(function(x){ return x.id === id; })[0];
+        profStorageKeys(id).forEach(lsDel); saveProfList(profList().filter(function(x){ return x.id !== id; }));
+        $('#pf-list').innerHTML = others(); toast('Profil « ' + profName(gone) + ' » supprimé'); return;
+      }
+      if (act === 'backup') { backupProfile(); return; }
+      if (act === 'restore') { closeModal(); var fi = $('#file'); fi.value = ''; fi.click(); return; }
+    });
+  var box = $('#mbox');
+  box.onclick = function(e){
+    var s = e.target.closest('[data-pcolor]'); if (!s) return;
+    color = +s.dataset.pcolor; updateProfile({ color:color });
+    box.querySelectorAll('[data-pcolor]').forEach(function(x){ x.classList.toggle('on', x === s); x.setAttribute('aria-checked', x === s); });
+    $('#pf-av').innerHTML = profAvatar(profile, 44);
+  };
+  box.oninput = null;
+  $('#pf-new').addEventListener('keydown', function(e){ if (e.key === 'Enter') box.querySelector('[data-m=create]').click(); });
+}
+function backupProfile(){
+  if (model && !model.sample) save();
+  var projects = projIndex().map(function(r){ return loadProject(r.id); }).filter(Boolean).map(exportable);
+  if (!projects.length) { toast('Ce profil n’a encore aucun projet à sauvegarder'); return; }
+  var d = new Date(), stamp = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  var who = profName().normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'profil';
+  saveFile('misterdesigner-sauvegarde-' + who + '-' + stamp + '.json', JSON.stringify({ kind:'misterdesigner-backup', v:1, profile:profName(), exported:d.toISOString(), projects:projects }, null, 2));
+}
+function restoreBackup(b){
+  var idx = projIndex(), added = 0, updated = 0, kept = 0;
+  b.projects.forEach(function(raw){
+    if (!raw || !Array.isArray(raw.cubes)) return;
+    var m = normalize(raw), ex = idx.filter(function(x){ return x.id === m.id; })[0];
+    if (ex && String(ex.updated) >= String(m.updated)) { kept++; return; }
+    m.updated = m.updated || new Date().toISOString();
+    lsSet(PFX + m.id, JSON.stringify(m)); touchIndex(m); if (ex) updated++; else added++;
+  });
+  if (model.sample || !model.cubes.length) { var l = projIndex().sort(function(a, c){ return String(c.updated).localeCompare(String(a.updated)); }); var m0 = l.length && loadProject(l[0].id); if (m0) openProject(m0); }
+  renderAll();
+  toast('Sauvegarde de « ' + (b.profile || 'un profil') + ' » : ' + added + ' projet' + (added > 1 ? 's' : '') + ' ajouté' + (added > 1 ? 's' : '') + (updated ? ', ' + updated + ' mis à jour' : '') + (kept ? ', ' + kept + ' déjà à jour' : ''));
+}
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function lsSet(k, v){ try { localStorage.setItem(k, v); return true; } catch(e){ return false; } }
 function lsDel(k){ try { localStorage.removeItem(k); } catch(e){} }
 function projIndex(){ try { var l = JSON.parse(lsGet(PKEY) || '[]'); return Array.isArray(l) ? l : []; } catch(e){ return []; } }
-function projRow(m){ return { id:m.id, name:m.name, updated:m.updated, cubes:m.cubes.length, links:m.links.length, dims:m.dims.length, cloud:m.cloud ? m.cloud.folder || 'SharePoint' : '' }; }
+function projRow(m){ return { id:m.id, name:m.name, updated:m.updated, author:m.author || '', cubes:m.cubes.length, links:m.links.length, dims:m.dims.length, cloud:m.cloud ? m.cloud.folder || 'SharePoint' : '' }; }
 function touchIndex(m){
   var l = projIndex(), r = projRow(m), i = l.findIndex(function(x){ return x.id === m.id; });
   if (i >= 0) l[i] = r; else l.push(r);
@@ -566,7 +738,7 @@ function loadProject(id){ var s = lsGet(PFX + id); if (!s) return null; try { re
 function load(){
   if (!embedded) {
     if (lsGet(PKEY) == null) { // first run with projects: move the single saved model into the list
-      var old = lsGet(STORE), om = null;
+      var old = profile && profile.id === 'default' ? lsGet(STORE) : null, om = null;
       try { om = old ? normalize(JSON.parse(old)) : null; } catch(e){}
       lsSet(PKEY, '[]');
       if (om) { om.updated = om.updated || new Date().toISOString(); lsSet(PFX + om.id, JSON.stringify(om)); touchIndex(om); lsSet(CUR, om.id); lsDel(STORE); }
@@ -585,6 +757,7 @@ function load(){
 }
 function save(){
   model.updated = new Date().toISOString();
+  if (!embedded && profile) { if (!model.author) model.author = profName(); model.updatedBy = profName(); }
   if (embedded) lsSet(storeKey, JSON.stringify(model));
   else {
     if (!lsSet(PFX + model.id, JSON.stringify(model))) toast('Le stockage du navigateur est plein : exportez puis supprimez d\u2019anciens projets');
@@ -631,6 +804,7 @@ function renderAll(){
   $('#btn-edit').hidden = !embedded;
   $('#btn-edit').textContent = readonly ? 'Modifier' : 'Terminer les modifications';
   $('#mname').textContent = model.name;
+  renderProfileBtn();
   $('#btn-projects').hidden = !!embedded;
   if (!embedded) { var pc = projIndex().length; $('#pcount').textContent = pc > 1 ? pc : ''; }
   $('#tab-schema').setAttribute('aria-selected', tab === 'schema');
@@ -801,6 +975,7 @@ function renderRight(){
     var kc = {}; model.links.forEach(function(l){ kc[l.kind] = (kc[l.kind] || 0) + 1; });
     h = '<div class="eyebrow">Projet</div>' +
       '<label class="l" for="f-mname">Nom du projet</label><input class="field" id="f-mname" data-f="m-name" value="' + esc(model.name) + '"' + dis() + '>' +
+      (model.author ? '<p class="hint" style="margin:6px 0 0">Créé par ' + esc(model.author) + (model.updatedBy && model.updatedBy !== model.author ? ' · modifié par ' + esc(model.updatedBy) : '') + (model.updated ? ' le ' + esc(fmtDate(model.updated)) : '') + '</p>' : '') +
       '<label class="l" for="f-mdesc">Description</label><textarea class="field" id="f-mdesc" data-f="m-desc" placeholder="Client, périmètre, version…"' + dis() + '>' + esc(model.desc) + '</textarea>' +
       (model.sample ? '<p class="note">Ceci est un exemple. Cliquez sur <b>Importer</b> pour charger votre matrice Excel Dims × Cubes.</p>' : '') +
       '<div class="stats"><div class="stat"><b>' + model.cubes.length + '</b><span>cubes</span></div><div class="stat"><b>' + model.dims.length + '</b><span>dimensions</span></div><div class="stat"><b>' + model.links.length + '</b><span>liens</span></div></div>' +
@@ -1195,7 +1370,7 @@ function projectsDialog(){
     return (f.map(function(x){
       var cur = x.id === model.id;
       return '<li class="prow' + (cur ? ' cur' : '') + '"><div class="pinfo"><div class="pname">' + esc(x.name) + (cur ? ' <span class="pbadge">Ouvert</span>' : '') + (x.cloud ? ' <span class="pbadge sp">SharePoint</span>' : '') + '</div>' +
-        '<div class="pmeta">' + x.cubes + ' cubes · ' + x.dims + ' dimensions · ' + x.links + ' liens' + (x.updated ? ' · modifié le ' + fmtDate(x.updated) : '') + '</div></div>' +
+        '<div class="pmeta">' + x.cubes + ' cubes · ' + x.dims + ' dimensions · ' + x.links + ' liens' + (x.updated ? ' · modifié le ' + fmtDate(x.updated) : '') + (x.author && x.author !== profName() ? ' · créé par ' + esc(x.author) : '') + '</div></div>' +
         '<div class="pacts">' + (cur ? '' : '<button type="button" class="btn sm" data-m="open" data-pid="' + x.id + '">Ouvrir</button>') +
         '<button type="button" class="btn sm" data-m="dup" data-pid="' + x.id + '">Dupliquer</button>' +
         '<button type="button" class="btn sm danger" data-m="del" data-pid="' + x.id + '">Supprimer</button></div></li>';
@@ -1562,9 +1737,30 @@ $('#btn-new').addEventListener('click', function(){
 $('#btn-projects').addEventListener('click', projectsDialog);
 $('#btn-sp').addEventListener('click', spDialog);
 $('#btn-import').addEventListener('click', function(){ var f = $('#file'); f.value = ''; f.click(); });
-$('#btn-json').addEventListener('click', function(){ saveFile(slug() + '.json', JSON.stringify(exportable(model), null, 2)); });
-$('#btn-html').addEventListener('click', function(){ saveFile(slug() + '.html', buildHTML()); });
-$('#btn-png').addEventListener('click', exportPNG);
+(function(){
+  var btn = $('#btn-export'), menu = $('#export-menu');
+  function items(){ return Array.prototype.filter.call(menu.querySelectorAll('[role=menuitem]'), function(b){ return b.offsetParent !== null || !menu.hidden; }); }
+  function open(focus){ menu.hidden = false; btn.setAttribute('aria-expanded', 'true'); $('#exp-backup').hidden = !!embedded; if (focus) { var it = items(); if (it.length) it[0].focus(); } }
+  function close(back){ if (menu.hidden) return; menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); if (back) btn.focus(); }
+  btn.addEventListener('click', function(e){ e.stopPropagation(); if (menu.hidden) open(e.detail === 0); else close(); });
+  menu.addEventListener('click', function(e){
+    var b = e.target.closest('[data-exp]'); if (!b) return;
+    close(); var k = b.dataset.exp;
+    if (k === 'html') saveFile(slug() + '.html', buildHTML());
+    else if (k === 'png') exportPNG();
+    else if (k === 'json') saveFile(slug() + '.json', JSON.stringify(exportable(model), null, 2));
+    else if (k === 'backup') backupProfile();
+  });
+  menu.addEventListener('keydown', function(e){
+    var it = items(), i = it.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') { e.preventDefault(); it[(i + 1) % it.length].focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); it[(i - 1 + it.length) % it.length].focus(); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(true); }
+    else if (e.key === 'Tab') close();
+  });
+  document.addEventListener('click', function(e){ if (!e.target.closest('.menuwrap')) close(); });
+})();
+$('#btn-profile').addEventListener('click', profilesDialog);
 
 document.addEventListener('keydown', function(e){
   var t = e.target, typing = t.closest && t.closest('input,textarea,select,[contenteditable]');
@@ -2110,6 +2306,7 @@ $('#file').addEventListener('change', function(e){
         var m;
         if (ext === 'json') m = JSON.parse(txt);
         else { var el = new DOMParser().parseFromString(txt, 'text/html').getElementById('cd-model'); if (!el || !el.textContent.trim()) throw new Error('nomodel'); m = JSON.parse(el.textContent); }
+        if (m && m.kind === 'misterdesigner-backup' && Array.isArray(m.projects) && !embedded) { restoreBackup(m); return; }
         if (!m || !Array.isArray(m.cubes)) throw new Error('nomodel');
         importModelFile(m);
       } catch (err) { toast(ext === 'json' ? 'Ce fichier JSON n’est pas un modèle MisterDesigner' : 'Ce fichier HTML ne contient pas de modèle MisterDesigner exporté'); }
@@ -2284,7 +2481,6 @@ function excelDialog(fileName, base, sheets){
 }
 
 /* ---------- theme ---------- */
-var THEME_KEY = 'cubedesigner.theme';
 function applyTheme(t){
   var root = document.documentElement;
   if (t === 'light' || t === 'dark') root.setAttribute('data-theme', t); else root.removeAttribute('data-theme');
@@ -2300,7 +2496,6 @@ document.querySelector('.themes').addEventListener('click', function(e){
 });
 
 /* ---------- side panels ---------- */
-var PANES_KEY = 'cubedesigner.panes';
 var panes = { left:true, right:true };
 try { var ps = JSON.parse(localStorage.getItem(PANES_KEY) || 'null'); if (ps) panes = { left:ps.left !== false, right:ps.right !== false }; } catch(e){}
 function applyPanes(save){
@@ -2335,6 +2530,7 @@ else if (model.updated) { var d0 = new Date(model.updated); $('#saved').textCont
 else $('#saved').textContent = 'Exemple';
 spBoot();
 if (restoredMsg) toast(restoredMsg);
+if (profileFirstRun && !embedded) welcomeDialog();
 })();
 </script>
 </body>
