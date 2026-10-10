@@ -47,6 +47,11 @@ button{cursor:pointer}
 .eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
 #mname{border:0;background:none;padding:2px 4px;border-radius:4px;font-weight:600;font-size:14px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
 #mname:hover{background:var(--panel-2)}
+#mname::after{content:'';display:inline-block;width:13px;height:13px;margin-left:6px;vertical-align:-1px;opacity:0;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z'/%3E%3C/svg%3E") center/contain no-repeat}
+#mname:hover::after,#mname:focus-visible::after{opacity:.6}
+.ro #mname::after{display:none}
+.field.mren{width:300px;max-width:50vw;padding:4px 8px;font-weight:600;font-size:14px}
+.field.pren{padding:4px 8px;font-weight:600;font-size:14px;max-width:340px}
 .pcount{font-size:11px;font-weight:600;background:var(--accent-soft);color:var(--accent);border-radius:9px;padding:0 6px;line-height:18px}
 .pcount:empty{display:none}
 .projlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:420px;overflow:auto}
@@ -294,7 +299,7 @@ textarea.field{resize:vertical;min-height:64px}
     </div>
     <div class="mtitle">
       <span class="eyebrow">Projet</span>
-      <button type="button" id="mname" title="Propriétés du projet"></button>
+      <button type="button" id="mname" title="Cliquer pour renommer le projet"></button>
       <button type="button" id="btn-projects" class="btn sm" title="Ouvrir, créer, dupliquer ou supprimer des projets"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>Projets<span id="pcount" class="pcount"></span></button>
       <button type="button" id="btn-sp" class="btn sm" hidden><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.5 19a4.5 4.5 0 1 0-1.4-8.78A6 6 0 0 0 4.3 12.7 3.5 3.5 0 0 0 6.5 19z"></path></svg><span class="splbl">SharePoint</span><span class="spdot"></span></button>
       <span id="saved" class="saved"></span>
@@ -1361,6 +1366,22 @@ function importModelFile(m){
     });
 }
 function fmtDate(iso){ if (!iso) return ''; var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('fr-FR') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
+function renameProject(id, name){
+  name = String(name || '').trim(); if (!name) return false;
+  if (id === model.id) { if (name !== model.name) mutate(function(){ model.name = name; }); return true; }
+  var m = loadProject(id); if (!m) return false;
+  m.name = name; m.updated = new Date().toISOString(); if (profile) m.updatedBy = profName();
+  lsSet(PFX + m.id, JSON.stringify(m)); touchIndex(m); return true;
+}
+function inlineEdit(host, value, onDone, cls){
+  var inp = document.createElement('input'); inp.className = 'field ' + (cls || ''); inp.value = value; inp.setAttribute('aria-label', 'Nouveau nom du projet');
+  host.style.display = 'none'; host.parentNode.insertBefore(inp, host.nextSibling); inp.focus(); inp.select();
+  var done = false;
+  function finish(keep){ if (done) return; done = true; var v = inp.value.trim(); inp.remove(); host.style.display = ''; onDone(keep && v && v !== value ? v : null); }
+  inp.addEventListener('keydown', function(e){ e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); finish(true); } if (e.key === 'Escape') { e.preventDefault(); finish(false); } });
+  inp.addEventListener('blur', function(){ finish(true); });
+  inp.addEventListener('click', function(e){ e.stopPropagation(); });
+}
 function projectsDialog(){
   var q = '';
   function rows(){
@@ -1372,6 +1393,7 @@ function projectsDialog(){
       return '<li class="prow' + (cur ? ' cur' : '') + '"><div class="pinfo"><div class="pname">' + esc(x.name) + (cur ? ' <span class="pbadge">Ouvert</span>' : '') + (x.cloud ? ' <span class="pbadge sp">SharePoint</span>' : '') + '</div>' +
         '<div class="pmeta">' + x.cubes + ' cubes · ' + x.dims + ' dimensions · ' + x.links + ' liens' + (x.updated ? ' · modifié le ' + fmtDate(x.updated) : '') + (x.author && x.author !== profName() ? ' · créé par ' + esc(x.author) : '') + '</div></div>' +
         '<div class="pacts">' + (cur ? '' : '<button type="button" class="btn sm" data-m="open" data-pid="' + x.id + '">Ouvrir</button>') +
+        '<button type="button" class="btn sm" data-m="ren" data-pid="' + x.id + '">Renommer</button>' +
         '<button type="button" class="btn sm" data-m="dup" data-pid="' + x.id + '">Dupliquer</button>' +
         '<button type="button" class="btn sm danger" data-m="del" data-pid="' + x.id + '">Supprimer</button></div></li>';
     }).join('') || '<li class="hint" style="padding:12px">Aucun projet ne correspond.</li>');
@@ -1387,6 +1409,11 @@ function projectsDialog(){
       var id = b.dataset.pid;
       if (act === 'new') { closeModal(); newProject(); return; }
       if (act === 'open') { var m = loadProject(id); if (!m) { toast('Ce projet est illisible'); return; } closeModal(); openProject(m); toast('Projet « ' + model.name + ' » ouvert'); return; }
+      if (act === 'ren') {
+        var row = b.closest('.prow'), nameEl = row.querySelector('.pname'), cur0 = (projIndex().filter(function(x){ return x.id === id; })[0] || model).name;
+        inlineEdit(nameEl, cur0, function(v){ if (v && renameProject(id, v)) toast('Projet renommé « ' + v + ' »'); draw(); }, 'pren');
+        return;
+      }
       if (act === 'dup') {
         var src = id === model.id ? normalize(JSON.parse(JSON.stringify(model))) : loadProject(id); if (!src) return;
         src.id = uid('m'); src.name = src.name + ' (copie)'; src.updated = new Date().toISOString(); src.sample = false;
@@ -1714,7 +1741,11 @@ function spBoot(){
 }
 
 /* ---------- toolbar ---------- */
-$('#mname').addEventListener('click', function(){ sel = null; renderAll(); var f = $('#f-mname'); if (f && !readonly) f.focus(); });
+$('#mname').addEventListener('click', function(){
+  if (readonly) { sel = null; renderAll(); return; }
+  var host = $('#mname');
+  inlineEdit(host, model.name, function(v){ if (v) { renameProject(model.id, v); toast('Projet renommé « ' + v + ' »'); } renderAll(); }, 'mren');
+});
 $('#tab-schema').addEventListener('click', function(){ tab = 'schema'; renderAll(); });
 $('#tab-matrix').addEventListener('click', function(){ tab = 'matrix'; renderAll(); });
 $('#btn-expand').addEventListener('click', function(){ setAllOpen(true); });
