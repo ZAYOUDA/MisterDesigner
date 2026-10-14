@@ -209,6 +209,8 @@ textarea.field{resize:vertical;min-height:64px}
 .hit{fill:none;stroke:transparent;stroke-width:14;pointer-events:stroke;cursor:pointer}
 .tmp{fill:none;stroke:var(--accent);stroke-width:2;stroke-dasharray:4 4}
 .wlt{max-width:220px;overflow:hidden;text-overflow:ellipsis}
+.field.nn-edit{padding:2px 6px;font-weight:600;font-size:13px;line-height:1.25}
+.field.dim-edit{padding:1px 6px;height:22px;font:12px var(--f-mono)}
 .wl-edit{position:absolute;transform:translate(-50%,-50%);z-index:6;width:220px;height:32px;border:2px solid var(--accent);border-radius:16px;padding:0 12px;font:600 12px var(--f-sans);background:var(--panel);color:var(--ink);box-shadow:var(--shadow)}
 .wl{position:absolute;transform:translate(-50%,-50%);min-width:30px;height:30px;padding:0 9px;border-radius:15px;background:var(--panel);border:2px solid currentColor;font:700 11px var(--f-sans);display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
 .wl-rule{color:var(--w-rule)} .wl-ti{color:var(--w-ti)} .wl-feeder{color:var(--w-feed)} .wl-read{color:var(--w-read)}
@@ -401,7 +403,7 @@ textarea.field{resize:vertical;min-height:64px}
           <div id="nodes"></div>
           <div class="labels" id="labels"></div>
         </div>
-        <div class="vhint" id="vhint">Glisser le fond pour se déplacer · Ctrl + molette pour zoomer<span class="edit-only"> · Maj + clic ou Maj + glisser pour sélectionner plusieurs cubes · Glisser le point bleu d'un cube vers un autre pour les relier</span></div>
+        <div class="vhint" id="vhint">Glisser le fond pour se déplacer · Ctrl + molette pour zoomer<span class="edit-only"> · Double-clic sur un nom (ou F2) pour le renommer · Maj + clic ou Maj + glisser pour sélectionner plusieurs cubes · Glisser le point bleu d'un cube vers un autre pour les relier</span></div>
       </div>
       <div class="matrix" id="matrix" hidden></div>
     </section>
@@ -845,12 +847,12 @@ function nodeHTML(c){
   if (c.open) {
     list = '<ol class="nd">' + (c.dims.map(function(d){
       var o = dimObj(d);
-      return '<li class="' + (d === hl ? 'on' : '') + '"><span>/ ' + esc(d) + '</span>' + (o && o.measure ? '<span class="mt">Mes.</span>' : '') + '</li>';
+      return '<li class="' + (d === hl ? 'on' : '') + '" data-dim="' + esc(d) + '"' + (readonly ? '' : ' title="Double-clic pour renommer la dimension"') + '><span>/ ' + esc(d) + '</span>' + (o && o.measure ? '<span class="mt">Mes.</span>' : '') + '</li>';
     }).join('') || '<li class="empty">Aucune dimension</li>') + '</ol>';
   }
   return '<div class="' + cls + '" data-id="' + c.id + '" style="left:' + c.x + 'px;top:' + c.y + 'px" title="' + esc(c.desc) + '">' +
     '<div class="nh"><span class="ico">' + icon(c.type, 32) + '</span>' +
-    '<div class="nt"><div class="nn">' + esc(c.name) + '</div><div class="nm">' + esc(t.label) + ' · ' + c.dims.length + ' dim' + (c.dims.length > 1 ? 's' : '') + '</div></div>' +
+    '<div class="nt"><div class="nn"' + (readonly ? '' : ' title="Double-clic pour renommer"') + '>' + esc(c.name) + '</div><div class="nm">' + esc(t.label) + ' · ' + c.dims.length + ' dim' + (c.dims.length > 1 ? 's' : '') + '</div></div>' +
     '<button type="button" class="tg" data-act="toggle" aria-expanded="' + c.open + '" aria-label="' + (c.open ? 'Replier' : 'Déplier') + ' les dimensions de ' + esc(c.name) + '">' + I.chev + '</button></div>' +
     list + '<button type="button" class="port" data-act="port" aria-label="Relier ' + esc(c.name) + ' à un autre cube" title="Glisser vers un autre cube"></button></div>';
 }
@@ -1020,6 +1022,7 @@ function addCube(type){
   var c = { id:uid('c'), name:'Nouveau cube ' + TYPES[type].label, type:type, x:Math.round(x/10)*10, y:Math.round(y/10)*10, open:true, desc:'', dims:[] };
   mutate(function(){ model.cubes.push(c); });
   select({k:'cube', id:c.id});
+  if (tab === 'schema') { renameCube(c.id); return; }
   var f = $('#f-cname'); if (f) { f.focus(); f.select(); }
 }
 function addDimToCube(c, name){
@@ -1141,7 +1144,28 @@ function renameFlow(id){
   inp.addEventListener('click', function(e){ e.stopPropagation(); });
   inp.addEventListener('dblclick', function(e){ e.stopPropagation(); });
 }
-vp.addEventListener('dblclick', function(e){ var wl = e.target.closest('.wl'); if (wl) { e.preventDefault(); renameFlow(wl.dataset.link); return; } var nh = e.target.closest('.nh'); if (nh && !e.target.closest('button')) toggleCube(nh.parentNode.dataset.id); });
+function renameCube(id){
+  var c = cube(id), el = nodesEl.querySelector('.node[data-id="' + id + '"] .nn'); if (!c || !el || readonly) return;
+  inlineEdit(el, c.name, function(v){
+    if (v) { mutate(function(){ c.name = v; }); toast('Cube renommé « ' + v + ' »'); } else renderNodes();
+  }, 'nn-edit', 'Nom du cube');
+}
+function renameDim(old, host){
+  if (!dimObj(old) || readonly) return;
+  inlineEdit(host, old, function(nv){
+    if (!nv) { renderNodes(); return; }
+    if (dimObj(nv)) { toast('La dimension « ' + nv + ' » existe déjà'); renderNodes(); return; }
+    mutate(function(){ dimObj(old).name = nv; model.cubes.forEach(function(c){ var i = c.dims.indexOf(old); if (i >= 0) c.dims[i] = nv; }); if (hl === old) hl = nv; if (sel && sel.k === 'dim' && sel.name === old) sel = {k:'dim', name:nv}; });
+    toast('Dimension renommée « ' + nv + ' » dans tous les cubes');
+  }, 'dim-edit', 'Nom de la dimension');
+}
+vp.addEventListener('dblclick', function(e){
+  var wl = e.target.closest('.wl'); if (wl) { e.preventDefault(); renameFlow(wl.dataset.link); return; }
+  if (e.target.closest('input')) return;
+  var nn = e.target.closest('.nn'); if (nn && !readonly) { e.preventDefault(); renameCube(nn.closest('.node').dataset.id); return; }
+  var li = e.target.closest('.nd li[data-dim]'); if (li && !readonly) { e.preventDefault(); renameDim(li.dataset.dim, li.querySelector('span')); return; }
+  var nh = e.target.closest('.nh'); if (nh && !e.target.closest('button')) toggleCube(nh.parentNode.dataset.id);
+});
 vp.addEventListener('wheel', function(e){
   e.preventDefault();
   var r = vp.getBoundingClientRect();
@@ -1382,14 +1406,16 @@ function renameProject(id, name){
   if (m.cloud && m.cloud.role !== 'read') m.cloud.dirty = true;
   lsSet(PFX + m.id, JSON.stringify(m)); touchIndex(m); return true;
 }
-function inlineEdit(host, value, onDone, cls){
-  var inp = document.createElement('input'); inp.className = 'field ' + (cls || ''); inp.value = value; inp.setAttribute('aria-label', 'Nouveau nom du projet');
+function inlineEdit(host, value, onDone, cls, label){
+  var inp = document.createElement('input'); inp.className = 'field ' + (cls || ''); inp.value = value; inp.setAttribute('aria-label', label || 'Nouveau nom du projet');
   host.style.display = 'none'; host.parentNode.insertBefore(inp, host.nextSibling); inp.focus(); inp.select();
   var done = false;
   function finish(keep){ if (done) return; done = true; var v = inp.value.trim(); inp.remove(); host.style.display = ''; onDone(keep && v && v !== value ? v : null); }
   inp.addEventListener('keydown', function(e){ e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); finish(true); } if (e.key === 'Escape') { e.preventDefault(); finish(false); } });
   inp.addEventListener('blur', function(){ finish(true); });
   inp.addEventListener('click', function(e){ e.stopPropagation(); });
+  inp.addEventListener('pointerdown', function(e){ e.stopPropagation(); });
+  inp.addEventListener('dblclick', function(e){ e.stopPropagation(); });
 }
 function projectsDialog(){
   var q = '';
@@ -1882,6 +1908,11 @@ document.addEventListener('keydown', function(e){
   }
   if (typing) return;
   if (e.key === 'Escape') { sel = null; hl = null; renderAll(); }
+  if (e.key === 'F2' && sel && !readonly && tab === 'schema') {
+    e.preventDefault();
+    if (sel.k === 'cube') renameCube(sel.id); else if (sel.k === 'link') renameFlow(sel.id);
+    else if (sel.k === 'dim') { var li = nodesEl.querySelector('.nd li[data-dim="' + CSS.escape(sel.name) + '"] span'); if (li) renameDim(sel.name, li); }
+  }
   if ((e.key === 'Delete' || e.key === 'Backspace') && sel && !readonly) { e.preventDefault(); deleteSel(); }
 });
 
