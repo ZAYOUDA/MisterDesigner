@@ -6,8 +6,15 @@
 <meta name="description" content="Éditeur de conception IBM Planning Analytics / TM1 : cubes, dimensions, liens, import Excel et export HTML.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <title>MS-Designer</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style id="app-fonts">
+@font-face{font-family:'IBM Plex Sans';font-weight:400;font-display:swap;src:url(fonts/plex-sans-400.woff2) format('woff2')}
+@font-face{font-family:'IBM Plex Sans';font-weight:500;font-display:swap;src:url(fonts/plex-sans-500.woff2) format('woff2')}
+@font-face{font-family:'IBM Plex Sans';font-weight:600;font-display:swap;src:url(fonts/plex-sans-600.woff2) format('woff2')}
+@font-face{font-family:'IBM Plex Sans';font-weight:700;font-display:swap;src:url(fonts/plex-sans-700.woff2) format('woff2')}
+@font-face{font-family:'IBM Plex Mono';font-weight:400;font-display:swap;src:url(fonts/plex-mono-400.woff2) format('woff2')}
+@font-face{font-family:'IBM Plex Mono';font-weight:500;font-display:swap;src:url(fonts/plex-mono-500.woff2) format('woff2')}
+@font-face{font-family:'IBM Plex Mono';font-weight:600;font-display:swap;src:url(fonts/plex-mono-600.woff2) format('woff2')}
+</style>
 <style id="app-style">
 /* Layout: app shell — top bar, left palette (types + dimension catalog), pan/zoom drafting stage or Dims×Cubes matrix, right properties panel */
 :root{
@@ -1777,7 +1784,7 @@ $('#btn-import').addEventListener('click', function(){ var f = $('#file'); f.val
   menu.addEventListener('click', function(e){
     var b = e.target.closest('[data-exp]'); if (!b) return;
     close(); var k = b.dataset.exp;
-    if (k === 'html') saveFile(slug() + '.html', buildHTML());
+    if (k === 'html') buildHTML().then(function(h){ saveFile(slug() + '.html', h); });
     else if (k === 'png') exportPNG();
     else if (k === 'json') saveFile(slug() + '.json', JSON.stringify(exportable(model), null, 2));
     else if (k === 'backup') backupProfile();
@@ -1823,16 +1830,27 @@ function toast(msg){ var t = $('#toast'); t.textContent = msg; t.hidden = false;
 
 /* ---------- export ---------- */
 function slug(){ return 'conception-' + (model.name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'modele'); }
+/* Le fichier exporté n'appelle aucun réseau : polices intégrées en data:, pas de bibliothèque Excel (lecture seule). */
+function inlineFonts(){
+  var css = ($('#app-fonts') || {}).textContent || '';
+  if (!css || /data:font/.test(css)) return Promise.resolve(css);
+  var urls = css.match(/fonts\/[\w-]+\.woff2/g) || [];
+  return Promise.all(urls.map(function(u){
+    return fetch(u).then(function(r){ if (!r.ok) throw new Error(r.status); return r.blob(); }).then(function(b){
+      return new Promise(function(ok, ko){ var fr = new FileReader(); fr.onload = function(){ ok(fr.result.replace(/^data:[^;]*/, 'data:font/woff2')); }; fr.onerror = ko; fr.readAsDataURL(b); });
+    });
+  })).then(function(d){ urls.forEach(function(u, i){ css = css.replace(u, d[i]); }); return css; }, function(){ return ''; });
+}
 function buildHTML(){
   var data = JSON.stringify(exportable(model)).replace(/</g, '\\u003c');
-  return '<!doctype html>\n<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
-    '<title>' + esc(model.name) + ' — MS-Designer</title>' +
-    '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">' +
-    '<style id="app-style">' + STYLE + '</style></head><body>' + SHELL +
-    '<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>' +
-    '<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"><\/script>' +
-    '<script type="application/json" id="cd-model">' + data + '<\/script>' +
-    '<script id="app-js">' + JS + '<\/script></body></html>';
+  return inlineFonts().then(function(fonts){
+    return '<!doctype html>\n<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+      '<title>' + esc(model.name) + ' — MS-Designer</title>' +
+      (fonts ? '<style id="app-fonts">' + fonts + '</style>' : '') +
+      '<style id="app-style">' + STYLE + '</style></head><body>' + SHELL +
+      '<script type="application/json" id="cd-model">' + data + '<\/script>' +
+      '<script id="app-js">' + JS + '<\/script></body></html>';
+  });
 }
 function saveFile(filename, data){
   var fallback = function(){
@@ -2344,7 +2362,7 @@ $('#file').addEventListener('change', function(e){
     };
     rd.readAsText(f);
   } else if (ext === 'xlsx' || ext === 'xls' || ext === 'xlsm') {
-    if (!window.XLSX) { toast('La lecture Excel nécessite une connexion internet. Enregistrez la feuille en CSV pour importer hors ligne.'); return; }
+    if (!window.XLSX) { toast(embedded ? 'L’import Excel se fait dans MS-Designer. Ici, importez un fichier CSV ou JSON.' : 'La lecture Excel nécessite une connexion internet. Enregistrez la feuille en CSV pour importer hors ligne.'); return; }
     rd.onload = function(){
       var sheets = {}, buf = rd.result;
       try {

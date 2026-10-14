@@ -10,7 +10,7 @@
 - Sélection multiple (Maj + clic, Maj + glisser, Ctrl + A) : déplacer, changer le type, ajouter une dimension, aligner, supprimer
 - Import d'une matrice Excel « Dims\Cubes » (.xlsx, .csv)
 - Import d'un schéma dessiné avec les formes Excel (cubes, encadrés de dimensions, connecteurs, repères F1/R1, légende de couleurs)
-- Un seul bouton **Exporter** : page HTML autonome (partageable, s'ouvre en lecture, réimportable), image PNG haute résolution, fichier JSON, sauvegarde de tous les projets du profil
+- Un seul bouton **Exporter** : page HTML autonome (partageable, s'ouvre en lecture, fonctionne hors ligne sans aucun accès réseau, polices intégrées, réimportable), image PNG haute résolution, fichier JSON, sauvegarde de tous les projets du profil
 - Profils sur le PC : chacun crée le sien (nom, couleur) et retrouve ses projets, son thème et sa disposition ; auteur et dernier modificateur enregistrés dans chaque projet ; sauvegarde / restauration pour changer de PC
 - Plusieurs projets enregistrés dans le navigateur (ouvrir, dupliquer, supprimer), enregistrement automatique, annuler / rétablir
 - Thème clair, sombre ou automatique
@@ -30,11 +30,12 @@ Quand `public/config.js` contient l'ID client et l'ID de locataire de l'inscript
 public/index.html   application complète (HTML + CSS + JS, sans build)
 public/favicon.svg
 public/config.js    configuration SharePoint (ID client, ID locataire, site)
+public/fonts/       IBM Plex Sans et Mono (woff2, licence OFL), servies localement et intégrées aux exports HTML
 public/vendor/      MSAL Browser 3.27.0 (connexion Microsoft), servi localement
 vercel.json         sert le dossier public/
 ```
 
-Dépendances chargées par CDN : SheetJS (lecture Excel), JSZip (lecture des formes Excel) et Google Fonts (IBM Plex).
+Dépendances chargées par CDN dans l'application : SheetJS (lecture Excel) et JSZip (lecture des formes Excel). La page HTML exportée n'en a pas besoin.
 
 ## Lancer en local
 
