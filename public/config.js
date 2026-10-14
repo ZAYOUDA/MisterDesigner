@@ -7,7 +7,7 @@
                les droits sont appliqués par la base (voir supabase/schema.sql). */
 window.MSDESIGNER_CONFIG = {
   supabase: {
-    url: '',
-    anonKey: ''
+    url: 'https://jdnwbegpbfafjglysjni.supabase.co',
+    anonKey: 'sb_publishable_BlmIn5hnLNgHDvDRJysCnw_KH9xFw5Z'
   }
 };
