@@ -16,22 +16,36 @@
 - Thème clair, sombre ou automatique
 - Palette et panneau de propriétés masquables, mode « Modèle seul » (Alt+1, Alt+2, Alt+0)
 
-## SharePoint (Microsoft 365)
+## En ligne (Supabase)
 
-Quand `public/config.js` contient l'ID client et l'ID de locataire de l'inscription Entra ID « MisterDesigner », un bouton **SharePoint** apparaît : connexion avec le compte Microsoft, navigation dans les dossiers du site, ouverture et enregistrement des modélisations (`.mdesign.json`), envoi automatique des modifications, détection des conflits (eTag), historique des versions, lien de partage `#sp-<id>` qui ouvre directement le modèle pour un collègue ayant accès au dossier.
+Quand `public/config.js` contient l'URL et la clé anon d'un projet Supabase, un bouton **En ligne** apparaît :
 
-- Permissions Graph déléguées : `User.Read`, `Sites.Selected` (application autorisée sur le seul site MisterDesigner).
-- Les données vont du navigateur à SharePoint ; Vercel ne sert que le code. Aucun secret.
-- `config.js` vide : l'application reste entièrement locale.
+- connexion par lien magique envoyé par e-mail (ou code à 6 chiffres), sans mot de passe ;
+- mise en ligne d'un projet, liste « mes modèles et ceux partagés avec moi », ouverture sur n'importe quel PC ;
+- partage par modèle : le propriétaire invite un collègue par e-mail, en **lecture seule** ou **peut modifier** ; lien direct `#m-<id>` ;
+- envoi automatique des modifications, détection des conflits (numéro de version), historique des versions (une par séance de travail, 50 max) ;
+- hors ligne, les modifications restent sur le PC et partent au retour du réseau.
+
+Les droits sont appliqués par la base (Row Level Security) : la clé anon est publique sans risque. `config.js` vide : l'application reste entièrement locale.
+
+### Mise en place
+
+1. Créer un projet sur [supabase.com](https://supabase.com), région UE (Paris ou Francfort).
+2. **SQL Editor** : coller et exécuter [`supabase/schema.sql`](supabase/schema.sql).
+3. **Authentication → URL Configuration** : *Site URL* `https://misterdesigner.vercel.app`, *Redirect URLs* `https://misterdesigner.vercel.app/**` (et `http://localhost:3000/**` pour les tests locaux).
+4. **Authentication → Emails → Magic Link** : ajouter le code au modèle d'e-mail, par exemple `<p>Ou saisissez ce code dans MS-Designer : <b>{{ .Token }}</b></p>`.
+5. **Authentication → Emails → SMTP Settings** : brancher un serveur SMTP (Brevo, Resend, Office 365…). Sans SMTP personnalisé, Supabase n'envoie les e-mails qu'aux membres de l'équipe du projet, quelques-uns par heure.
+6. **Project Settings → API** : recopier *Project URL* et la clé *anon* dans `public/config.js`, puis pousser.
 
 ## Structure
 
 ```
 public/index.html   application complète (HTML + CSS + JS, sans build)
 public/favicon.svg
-public/config.js    configuration SharePoint (ID client, ID locataire, site)
+public/config.js    configuration du mode en ligne (URL et clé anon Supabase)
 public/fonts/       IBM Plex Sans et Mono (woff2, licence OFL), servies localement et intégrées aux exports HTML
-public/vendor/      MSAL Browser 3.27.0 (connexion Microsoft), servi localement
+public/vendor/      supabase-js 2.117.2 (mode en ligne), servi localement
+supabase/schema.sql tables, droits et historique à exécuter dans Supabase
 vercel.json         sert le dossier public/
 ```
 

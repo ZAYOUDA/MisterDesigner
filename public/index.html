@@ -82,12 +82,11 @@ button{cursor:pointer}
 .profbtn:hover{border-color:var(--ink-3)}
 .pfname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media (max-width:1500px){.pfname{display:none}.profbtn{padding:3px}}
-.pbadge.sp{color:var(--w-read)}
-.spdot{width:8px;height:8px;border-radius:50%;background:var(--line);flex:none}
-.spdot.ok{background:var(--ok)} .spdot.warn{background:var(--hl)} .spdot.bad{background:var(--danger)} .spdot.busy{background:var(--accent);animation:sppulse 1s infinite alternate}
+.pbadge.cl{color:var(--w-read)}
+.cldot{width:8px;height:8px;border-radius:50%;background:var(--line);flex:none}
+.cldot.ok{background:var(--ok)} .cldot.warn{background:var(--hl)} .cldot.bad{background:var(--danger)} .cldot.busy{background:var(--accent);animation:sppulse 1s infinite alternate}
 @keyframes sppulse{from{opacity:.35}to{opacity:1}}
 .spcur{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;justify-content:space-between;border:1px solid var(--accent);background:var(--accent-soft);border-radius:8px;padding:10px 12px;margin-bottom:14px}
-.crumbs{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:13px;margin-bottom:8px}
 a.btn{text-decoration:none}
 .saved{font-size:12px;color:var(--ok);background:var(--ok-soft);padding:2px 8px;border-radius:10px;white-space:nowrap}
 .tabs{display:flex;gap:3px;background:var(--panel-2);border:1px solid var(--line-2);padding:3px;border-radius:8px}
@@ -308,7 +307,7 @@ textarea.field{resize:vertical;min-height:64px}
       <span class="eyebrow">Projet</span>
       <button type="button" id="mname" title="Cliquer pour renommer le projet"></button>
       <button type="button" id="btn-projects" class="btn sm" title="Ouvrir, créer, dupliquer ou supprimer des projets"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>Projets<span id="pcount" class="pcount"></span></button>
-      <button type="button" id="btn-sp" class="btn sm" hidden><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.5 19a4.5 4.5 0 1 0-1.4-8.78A6 6 0 0 0 4.3 12.7 3.5 3.5 0 0 0 6.5 19z"></path></svg><span class="splbl">SharePoint</span><span class="spdot"></span></button>
+      <button type="button" id="btn-cloud" class="btn sm" hidden><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.5 19a4.5 4.5 0 1 0-1.4-8.78A6 6 0 0 0 4.3 12.7 3.5 3.5 0 0 0 6.5 19z"></path></svg><span class="cllbl">En ligne</span><span class="cldot"></span></button>
       <span id="saved" class="saved"></span>
     </div>
     <div class="tabs" role="tablist" aria-label="Vue">
@@ -532,7 +531,7 @@ function normalize(m){
   var ids = {}; out.cubes.forEach(function(c){ ids[c.id] = 1; });
   out.links = (Array.isArray(m.links) ? m.links : []).filter(function(l){ return l && ids[l.from] && ids[l.to] && l.from !== l.to; })
     .map(function(l){ return { id: l.id || uid('l'), from:l.from, to:l.to, kind: KINDS[l.kind] ? l.kind : 'rule', label: String(l.label || ''), name: String(l.name || ''), desc: String(l.desc || '') }; });
-  if (m.cloud && m.cloud.itemId) out.cloud = { itemId:String(m.cloud.itemId), parentId:m.cloud.parentId || '', name:String(m.cloud.name || ''), folder:String(m.cloud.folder || ''), eTag:m.cloud.eTag || '', webUrl:m.cloud.webUrl || '', savedAt:m.cloud.savedAt || '', dirty:!!m.cloud.dirty };
+  if (m.cloud && m.cloud.id) out.cloud = { id:String(m.cloud.id), version:+m.cloud.version || 0, role:['owner', 'edit', 'read'].indexOf(m.cloud.role) >= 0 ? m.cloud.role : 'read', owner:String(m.cloud.owner || ''), savedAt:m.cloud.savedAt || '', dirty:!!m.cloud.dirty };
   return out;
 }
 function estH(c){ return 62 + (c.open ? 13 + Math.max(1, c.dims.length) * 24 : 0); }
@@ -740,7 +739,7 @@ function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null
 function lsSet(k, v){ try { localStorage.setItem(k, v); return true; } catch(e){ return false; } }
 function lsDel(k){ try { localStorage.removeItem(k); } catch(e){} }
 function projIndex(){ try { var l = JSON.parse(lsGet(PKEY) || '[]'); return Array.isArray(l) ? l : []; } catch(e){ return []; } }
-function projRow(m){ return { id:m.id, name:m.name, updated:m.updated, author:m.author || '', cubes:m.cubes.length, links:m.links.length, dims:m.dims.length, cloud:m.cloud ? m.cloud.folder || 'SharePoint' : '' }; }
+function projRow(m){ return { id:m.id, name:m.name, updated:m.updated, author:m.author || '', cubes:m.cubes.length, links:m.links.length, dims:m.dims.length, cloud:m.cloud ? m.cloud.id : '' }; }
 function touchIndex(m){
   var l = projIndex(), r = projRow(m), i = l.findIndex(function(x){ return x.id === m.id; });
   if (i >= 0) l[i] = r; else l.push(r);
@@ -1354,11 +1353,13 @@ function modeFieldset(mode, replaceText, mergeText){
     '<label><input type="radio" name="m-mode" value="merge"' + (mode === 'merge' ? ' checked' : '') + '><span>Fusionner avec le projet actuel<small>' + mergeText + '</small></span></label></fieldset>';
 }
 function openProject(m){
-  if (typeof cloud !== 'undefined' && cloud.dirty && model && model.cloud && SP.account()) cloudSave(false);
+  if (typeof cloud !== 'undefined' && cloud.dirty && model && model.cloud && CL.user()) cloudSave(false);
   if (typeof cloud !== 'undefined') { clearTimeout(cloud.timer); cloud.dirty = false; }
   model = normalize(m); undo = []; redo = []; sel = null; hl = null; tab = 'schema';
+  var online = typeof CL !== 'undefined' && CL.enabled;
+  if (!embedded) readonly = !!(online && model.cloud && model.cloud.role === 'read');
   save(); renderAll(); requestAnimationFrame(fit);
-  if (typeof SP !== 'undefined' && SP.enabled) cloudStatus(model.cloud ? (model.cloud.dirty ? 'dirty' : 'saved') : 'off');
+  if (online) { cloudStatus(cloudState()); if (model.cloud && model.cloud.dirty) cloudSave(false); else checkRemote(); }
 }
 function newProject(){ openProject({ name:'Nouveau projet', types:model.types }); toast('Nouveau projet créé'); var f = $('#f-mname'); if (f) { f.focus(); f.select(); } }
 function importModelFile(m){
@@ -1378,6 +1379,7 @@ function renameProject(id, name){
   if (id === model.id) { if (name !== model.name) mutate(function(){ model.name = name; }); return true; }
   var m = loadProject(id); if (!m) return false;
   m.name = name; m.updated = new Date().toISOString(); if (profile) m.updatedBy = profName();
+  if (m.cloud && m.cloud.role !== 'read') m.cloud.dirty = true;
   lsSet(PFX + m.id, JSON.stringify(m)); touchIndex(m); return true;
 }
 function inlineEdit(host, value, onDone, cls){
@@ -1397,7 +1399,7 @@ function projectsDialog(){
     var f = l.filter(function(x){ return !q || x.name.toLowerCase().indexOf(q) >= 0; });
     return (f.map(function(x){
       var cur = x.id === model.id;
-      return '<li class="prow' + (cur ? ' cur' : '') + '"><div class="pinfo"><div class="pname">' + esc(x.name) + (cur ? ' <span class="pbadge">Ouvert</span>' : '') + (x.cloud ? ' <span class="pbadge sp">SharePoint</span>' : '') + '</div>' +
+      return '<li class="prow' + (cur ? ' cur' : '') + '"><div class="pinfo"><div class="pname">' + esc(x.name) + (cur ? ' <span class="pbadge">Ouvert</span>' : '') + (x.cloud ? ' <span class="pbadge cl">En ligne</span>' : '') + '</div>' +
         '<div class="pmeta">' + x.cubes + ' cubes · ' + x.dims + ' dimensions · ' + x.links + ' liens' + (x.updated ? ' · modifié le ' + fmtDate(x.updated) : '') + (x.author && x.author !== profName() ? ' · créé par ' + esc(x.author) : '') + '</div></div>' +
         '<div class="pacts">' + (cur ? '' : '<button type="button" class="btn sm" data-m="open" data-pid="' + x.id + '">Ouvrir</button>') +
         '<button type="button" class="btn sm" data-m="ren" data-pid="' + x.id + '">Renommer</button>' +
@@ -1423,7 +1425,7 @@ function projectsDialog(){
       }
       if (act === 'dup') {
         var src = id === model.id ? normalize(JSON.parse(JSON.stringify(model))) : loadProject(id); if (!src) return;
-        src.id = uid('m'); src.name = src.name + ' (copie)'; src.updated = new Date().toISOString(); src.sample = false;
+        src.id = uid('m'); src.name = src.name + ' (copie)'; delete src.cloud; src.updated = new Date().toISOString(); src.sample = false;
         lsSet(PFX + src.id, JSON.stringify(src)); touchIndex(src); draw(); toast('Copie créée : « ' + src.name + ' »'); return;
       }
       if (act === 'del') {
@@ -1442,309 +1444,377 @@ function projectsDialog(){
   var ps = $('#p-search'); if (ps) ps.addEventListener('input', function(e){ q = e.target.value.trim().toLowerCase(); draw(); });
 }
 
-/* ---------- SharePoint (Microsoft 365) ---------- */
-var SP = (function(){
-  var cfg = ((window.MISTERDESIGNER_CONFIG || {}).sharepoint) || {};
-  var enabled = !!(cfg.clientId && cfg.tenantId && cfg.siteUrl) && !embedded && /^https?:$/.test(location.protocol);
-  var SCOPES = ['User.Read', 'Sites.Selected'];
-  var app = null, account = null, drive = null, ready = null;
-  function loadMsal(){
+/* ---------- En ligne (Supabase) ---------- */
+var CL = (function(){
+  var cfg = ((window.MSDESIGNER_CONFIG || {}).supabase) || {};
+  var enabled = !!(cfg.url && cfg.anonKey) && !embedded && /^https?:$/.test(location.protocol);
+  var sb = null, user = null, ready = null, booted = false, listeners = [];
+  function loadLib(){
     return new Promise(function(res, rej){
-      if (window.msal) { res(); return; }
-      var s = document.createElement('script'); s.src = cfg.msalUrl || '/vendor/msal-browser.min.js';
-      s.onload = function(){ res(); }; s.onerror = function(){ rej(new Error('msal')); };
+      if (window.supabase && window.supabase.createClient) { res(); return; }
+      var s = document.createElement('script'); s.src = cfg.libUrl || '/vendor/supabase.min.js';
+      s.onload = function(){ res(); }; s.onerror = function(){ rej(new Error('lib')); };
       document.head.appendChild(s);
     });
   }
   function init(){
-    if (ready) return ready;
-    ready = loadMsal().then(function(){
-      app = new window.msal.PublicClientApplication({ auth:{ clientId:cfg.clientId, authority:'https://login.microsoftonline.com/' + cfg.tenantId, redirectUri:location.origin + '/' }, cache:{ cacheLocation:'sessionStorage' } });
-      return app.initialize();
-    }).then(function(){ return app.handleRedirectPromise(); }).then(function(r){
-      account = (r && r.account) || app.getAllAccounts()[0] || null;
-      if (account) app.setActiveAccount(account);
-      return account;
-    });
+    if (ready) return ready.then(function(){ return user; }); // the user may have signed in since
+    ready = loadLib().then(function(){
+      sb = window.supabase.createClient(cfg.url, cfg.anonKey, { auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, flowType:'implicit' } });
+      // sign-in from another tab (magic link) or sign-out: notify outside the auth callback
+      sb.auth.onAuthStateChange(function(ev, session){
+        var u = session ? session.user : null, was = user; user = u;
+        if (booted && (!!was !== !!u || (was && u && was.id !== u.id))) setTimeout(function(){ listeners.forEach(function(f){ f(u); }); }, 0);
+      });
+      return sb.auth.getSession();
+    }).then(function(r){ user = r.data && r.data.session ? r.data.session.user : null; booted = true; return user; });
     ready.catch(function(){ ready = null; });
     return ready;
   }
-  function login(){
-    return init().then(function(){ return app.loginPopup({ scopes:SCOPES, prompt:'select_account' }); })
-      .then(function(r){ account = r.account; app.setActiveAccount(account); return account; });
-  }
-  function logout(){ var a = account; account = null; drive = null; return app ? app.logoutPopup({ account:a }).catch(function(){}) : Promise.resolve(); }
-  function token(){
-    if (!account) return Promise.reject(Object.assign(new Error('signin'), { status:401 }));
-    return app.acquireTokenSilent({ scopes:SCOPES, account:account }).catch(function(e){
-      if (window.msal && e instanceof window.msal.InteractionRequiredAuthError) return app.acquireTokenPopup({ scopes:SCOPES });
-      throw e;
-    }).then(function(r){ return r.accessToken; });
-  }
-  function graph(path, o){
-    o = o || {};
-    return token().then(function(t){
-      return fetch(/^https:/.test(path) ? path : 'https://graph.microsoft.com/v1.0' + path, { method:o.method || 'GET', headers:Object.assign({ Authorization:'Bearer ' + t }, o.headers || {}), body:o.body });
-    }).then(function(r){
-      if (!r.ok) { var e = new Error('graph ' + r.status); e.status = r.status; throw e; }
-      if (o.text) return r.text();
-      return r.status === 204 ? null : r.json();
+  function q(p){
+    return p.then(function(r){
+      if (r.error) { var e = new Error(r.error.message || 'db'); e.status = r.status || r.error.status; e.code = r.error.code; throw e; }
+      return r.data;
     });
   }
-  function siteDrive(){
-    if (drive) return Promise.resolve(drive);
-    var u = new URL(cfg.siteUrl);
-    return graph('/sites/' + u.hostname + ':' + u.pathname.replace(/\/$/, '')).then(function(s){ return graph('/sites/' + s.id + '/drive'); })
-      .then(function(d){ drive = d; return d; });
+  function fail(status, extra){ return Object.assign(new Error('cloud ' + status), { status:status }, extra || {}); }
+  function sendLink(mail){ return q(sb.auth.signInWithOtp({ email:mail, options:{ emailRedirectTo:location.origin + location.pathname, shouldCreateUser:true } })); }
+  function verify(mail, code){ return q(sb.auth.verifyOtp({ email:mail, token:code, type:'email' })).then(function(d){ user = d.user || (d.session && d.session.user) || user; return user; }); }
+  function logout(){ var done = function(){ user = null; }; return sb ? sb.auth.signOut().then(done, done) : Promise.resolve(); }
+  var LIST = 'id,name,owner_email,version,updated_at,updated_by_email,role';
+  function list(){ return q(sb.from('models_list').select(LIST).order('updated_at', { ascending:false })); }
+  function meta(id){ return q(sb.from('models_list').select(LIST).eq('id', id).maybeSingle()).then(function(m){ if (!m) throw fail(404); return m; }); }
+  function get(id){
+    return Promise.all([q(sb.from('models').select('id,name,data,version,updated_at,owner_email').eq('id', id).maybeSingle()), meta(id)])
+      .then(function(r){ if (!r[0]) throw fail(404); r[0].role = r[1].role; return r[0]; });
   }
-  function children(itemId){
-    return siteDrive().then(function(d){ return graph('/drives/' + d.id + '/items/' + (itemId || 'root') + '/children?$top=999'); })
-      .then(function(r){ return r.value || []; });
-  }
-  function item(itemId){ return siteDrive().then(function(d){ return graph('/drives/' + d.id + '/items/' + itemId); }); }
-  function readFile(itemId){
-    return item(itemId).then(function(meta){
-      var url = meta['@microsoft.graph.downloadUrl'];
-      var p = url ? fetch(url).then(function(r){ if (!r.ok) throw Object.assign(new Error('download'), { status:r.status }); return r.text(); })
-                  : graph('/drives/' + drive.id + '/items/' + itemId + '/content', { text:true });
-      return p.then(function(text){ return { meta:meta, text:text }; });
+  function create(name, data){ return q(sb.from('models').insert({ name:name, data:data }).select('id,version,updated_at,owner_email').single()); }
+  // version = the one this copy started from; null overwrites whatever is online
+  function update(id, version, name, data){
+    var b = sb.from('models').update({ name:name, data:data }).eq('id', id);
+    if (version != null) b = b.eq('version', version);
+    return q(b.select('id,version,updated_at')).then(function(rows){
+      if (rows && rows.length) return rows[0];
+      return meta(id).then(function(m){ throw m.role === 'owner' || m.role === 'edit' ? fail(412, { meta:m }) : fail(403); });
     });
   }
-  function writeFile(o){
-    return siteDrive().then(function(d){
-      var path = o.itemId ? '/drives/' + d.id + '/items/' + o.itemId + '/content'
-                          : '/drives/' + d.id + '/items/' + (o.parentId || 'root') + ':/' + encodeURIComponent(o.name) + ':/content?@microsoft.graph.conflictBehavior=fail';
-      var h = { 'Content-Type':'application/json' }; if (o.itemId && o.eTag) h['If-Match'] = o.eTag;
-      return graph(path, { method:'PUT', headers:h, body:o.text });
-    });
-  }
-  function mkdir(parentId, name){
-    return siteDrive().then(function(d){
-      return graph('/drives/' + d.id + '/items/' + (parentId || 'root') + '/children', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ name:name, folder:{}, '@microsoft.graph.conflictBehavior':'fail' }) });
-    });
-  }
-  function versions(itemId){ return siteDrive().then(function(d){ return graph('/drives/' + d.id + '/items/' + itemId + '/versions'); }).then(function(r){ return r.value || []; }); }
-  function versionText(itemId, vid){ return graph('/drives/' + drive.id + '/items/' + itemId + '/versions/' + vid + '/content', { text:true }); }
-  return { enabled:enabled, cfg:cfg, init:init, login:login, logout:logout, account:function(){ return account; },
-    children:children, item:item, readFile:readFile, writeFile:writeFile, mkdir:mkdir, versions:versions, versionText:versionText, siteDrive:siteDrive };
+  function remove(id){ return q(sb.from('models').delete().eq('id', id)); }
+  function shares(id){ return q(sb.from('model_shares').select('email,role').eq('model_id', id).order('email')); }
+  function share(id, mail, role){ return q(sb.from('model_shares').upsert({ model_id:id, email:mail, role:role })); }
+  function unshare(id, mail){ return q(sb.from('model_shares').delete().eq('model_id', id).eq('email', mail)); }
+  function versions(id){ return q(sb.from('model_versions').select('id,version,saved_at,saved_by_email').eq('model_id', id).order('version', { ascending:false }).limit(50)); }
+  function versionData(vid){ return q(sb.from('model_versions').select('name,data').eq('id', vid).single()); }
+  return { enabled:enabled, init:init, user:function(){ return user; }, email:function(){ return user ? String(user.email || '').toLowerCase() : ''; },
+    onAuth:function(f){ listeners.push(f); }, sendLink:sendLink, verify:verify, logout:logout,
+    list:list, meta:meta, get:get, create:create, update:update, remove:remove, shares:shares, share:share, unshare:unshare, versions:versions, versionData:versionData };
 })();
 
-var FILE_EXT = '.mdesign.json';
 var cloud = { dirty:false, busy:false, timer:0, quiet:false, state:'' };
+var PENDING = 'msd:open', LASTMAIL = 'msd:email';
+var ROLES = { owner:'Propriétaire', edit:'Peut modifier', read:'Lecture seule' };
 function exportable(m){ var o = JSON.parse(JSON.stringify(m)); delete o.cloud; delete o.sample; return o; }
-function spErr(e){
-  var s = e && e.status;
-  if (s === 401 || (e && /signin|interaction/i.test(e.message || ''))) return 'Session Microsoft expirée : reconnectez-vous.';
-  if (s === 403) return 'Accès refusé par SharePoint. Vérifiez que vous êtes membre du site MisterDesigner et que l’IT a autorisé l’application.';
-  if (s === 404) return 'Élément introuvable dans SharePoint (supprimé ou déplacé ?).';
-  if (s === 409) return 'Un fichier ou dossier porte déjà ce nom à cet endroit.';
-  if (e && e.message === 'msal') return 'Impossible de charger la connexion Microsoft.';
-  return 'SharePoint n’a pas répondu' + (s ? ' (erreur ' + s + ')' : '') + '. Réessayez dans un instant.';
+function who(mail){ return String(mail || '').split('@')[0] || 'un collègue'; }
+function cloudErr(e){
+  var s = e && e.status, msg = String(e && e.message || '');
+  if (msg === 'lib') return 'Impossible de charger le module en ligne. Vérifiez la connexion internet.';
+  if (s === 429 || /rate limit|security purposes/i.test(msg)) return 'Trop de demandes : patientez une minute avant de redemander un lien.';
+  if (s === 401 || (e && e.code === 'PGRST301') || /jwt/i.test(msg)) return 'Session expirée : reconnectez-vous.';
+  if (s === 403 || (e && e.code === '42501')) return 'Vous n’avez pas le droit de modifier ce modèle (accès en lecture seule).';
+  if (s === 404) return 'Modèle introuvable en ligne : il a été supprimé ou votre accès a été retiré.';
+  if (/failed to fetch|network|load failed/i.test(msg)) return 'Pas de connexion internet : vos modifications restent sur ce PC et partiront au retour du réseau.';
+  return 'Le service en ligne n’a pas répondu' + (s ? ' (erreur ' + s + ')' : '') + '. Réessayez dans un instant.';
 }
+function cloudState(){ var c = model.cloud; return !c ? 'off' : c.role === 'read' ? 'read' : c.dirty ? 'dirty' : 'saved'; }
 function cloudStatus(state){
   cloud.state = state;
-  var b = $('#btn-sp'); if (!b) return;
-  var dot = b.querySelector('.spdot'), lbl = b.querySelector('.splbl');
+  var b = $('#btn-cloud'); if (!b) return;
   var map = {
-    off:['', 'SharePoint'],
-    local:['', 'SharePoint'],
-    saved:['ok', 'Enregistré sur SharePoint'],
+    off:['', 'En ligne'],
+    saved:['ok', 'Enregistré en ligne'],
+    read:['ok', 'En ligne · lecture'],
     dirty:['warn', 'Modifications à envoyer'],
     saving:['busy', 'Envoi…'],
     conflict:['bad', 'Conflit à résoudre'],
     error:['bad', 'Envoi impossible']
   };
-  var m = map[state] || map.off;
-  dot.className = 'spdot ' + m[0]; lbl.textContent = m[1];
-  b.title = model.cloud ? 'Fichier SharePoint : ' + model.cloud.name + (model.cloud.savedAt ? ' · envoyé le ' + fmtDate(model.cloud.savedAt) : '') : 'Ouvrir ou enregistrer des modélisations dans SharePoint';
+  var m = map[state] || map.off, c = model.cloud;
+  b.querySelector('.cldot').className = 'cldot ' + m[0]; b.querySelector('.cllbl').textContent = m[1];
+  b.title = c ? 'Modèle en ligne · ' + ROLES[c.role] + (c.savedAt ? ' · envoyé le ' + fmtDate(c.savedAt) : '') : 'Mettre vos modèles en ligne et les partager';
 }
 function cloudTouch(){
-  if (!SP.enabled || !model.cloud || cloud.quiet) return;
-  cloud.dirty = true; model.cloud.dirty = true; cloudStatus('dirty');
+  if (!CL.enabled || !model.cloud || cloud.quiet || model.cloud.role === 'read') return;
+  cloud.dirty = true;
+  if (!model.cloud.dirty) { model.cloud.dirty = true; cloud.quiet = true; save(); cloud.quiet = false; }
+  cloudStatus('dirty');
   clearTimeout(cloud.timer);
   cloud.timer = setTimeout(function(){ cloudSave(false); }, 4000);
 }
 function cloudSave(manual, force){
-  if (!model.cloud) { if (manual) spDialog(); return Promise.resolve(); }
-  if (!SP.account()) { cloudStatus('dirty'); if (manual) spDialog(); return Promise.resolve(); }
+  var c = model.cloud;
+  if (!c) { if (manual) cloudDialog(); return Promise.resolve(); }
+  if (c.role === 'read') { if (manual) toast('Accès en lecture seule : dupliquez le projet pour le modifier'); return Promise.resolve(); }
+  if (!CL.user()) { cloudStatus('dirty'); if (manual) cloudDialog(); return Promise.resolve(); }
   if (cloud.busy) { clearTimeout(cloud.timer); cloud.timer = setTimeout(function(){ cloudSave(manual); }, 1500); return Promise.resolve(); }
   clearTimeout(cloud.timer); cloud.busy = true; cloudStatus('saving');
-  var c = model.cloud, mid = model.id, text = JSON.stringify(exportable(model), null, 2);
-  return SP.writeFile({ itemId:c.itemId, eTag:force ? null : c.eTag, text:text }).then(function(it){
+  var mid = model.id;
+  return CL.update(c.id, force ? null : c.version, model.name, exportable(model)).then(function(r){
     cloud.busy = false;
     if (model.id !== mid) return;
-    c.eTag = it.eTag; c.savedAt = new Date().toISOString(); c.webUrl = it.webUrl || c.webUrl; c.dirty = false; cloud.dirty = false;
+    c.version = r.version; c.savedAt = r.updated_at; c.dirty = false; cloud.dirty = false;
     cloud.quiet = true; save(); cloud.quiet = false;
-    cloudStatus('saved'); if (manual) toast('Enregistré sur SharePoint');
+    cloudStatus('saved'); if (manual) toast('Enregistré en ligne');
   }, function(e){
     cloud.busy = false;
-    if (e.status === 412) { cloudStatus('conflict'); conflictDialog(); return; }
-    cloudStatus('error'); toast(spErr(e));
+    if (model.id !== mid) return;
+    if (e.status === 412) { cloudStatus('conflict'); conflictDialog(e.meta); return; }
+    cloudStatus('error'); toast(cloudErr(e));
   });
 }
-function bindCloud(m, meta, folderName){
-  m.cloud = { itemId:meta.id, parentId:meta.parentReference && meta.parentReference.id, name:meta.name, folder:folderName || (meta.parentReference && meta.parentReference.name) || '', eTag:meta.eTag, webUrl:meta.webUrl, savedAt:meta.lastModifiedDateTime, dirty:false };
+function bindCloud(m, r){
+  m.cloud = { id:r.id, version:r.version, role:r.role || 'owner', owner:r.owner_email || '', savedAt:r.updated_at || '', dirty:false };
   return m;
 }
-function openFromCloud(itemId, folderName){
-  toast('Ouverture depuis SharePoint…');
-  return SP.readFile(itemId).then(function(r){
-    var m;
-    try { m = JSON.parse(r.text); } catch(e){ toast('Ce fichier n’est pas une modélisation MS-Designer lisible'); return; }
-    if (!m || !Array.isArray(m.cubes)) { toast('Ce fichier n’est pas une modélisation MS-Designer'); return; }
-    bindCloud(m, r.meta, folderName);
+function localFor(cloudId){ var r = projIndex().filter(function(x){ return x.cloud === cloudId; })[0]; return r ? loadProject(r.id) : null; }
+function openFromCloud(id){
+  toast('Ouverture du modèle en ligne…');
+  return CL.get(id).then(function(r){
+    var local = localFor(id);
+    if (local && local.cloud && local.cloud.dirty && r.role !== 'read') {
+      closeModal(); openProject(local); toast('Vos modifications non envoyées de « ' + local.name + ' » ont été reprises'); return;
+    }
+    var m = r.data || {};
+    if (!Array.isArray(m.cubes)) { toast('Ce modèle en ligne est illisible'); return; }
+    m.id = local ? local.id : uid('m'); m.name = r.name;
+    bindCloud(m, r);
     cloud.quiet = true; closeModal(); openProject(m); cloud.quiet = false; cloud.dirty = false;
-    cloudStatus('saved'); toast('« ' + model.name + ' » ouvert depuis SharePoint');
-  }, function(e){ toast(spErr(e)); });
+    toast('« ' + model.name + ' » ouvert' + (r.role === 'read' ? ' en lecture seule' : ''));
+  }, function(e){ toast(cloudErr(e)); });
 }
-function by(it){ var u = it && it.lastModifiedBy && it.lastModifiedBy.user; return u && u.displayName ? u.displayName : ''; }
-function conflictDialog(){
+function publish(){
+  model.sample = false;
+  return CL.create(model.name, exportable(model)).then(function(r){
+    r.role = 'owner'; bindCloud(model, r);
+    cloud.quiet = true; save(); cloud.quiet = false; cloud.dirty = false;
+    renderAll(); cloudStatus('saved'); toast('« ' + model.name + ' » est en ligne : invitez vos collègues pour le partager');
+  });
+}
+// a colleague may have saved meanwhile (tab in background, or local copy opened from the project list)
+function checkRemote(){
+  var c = model.cloud; if (!c || !CL.user() || cloud.busy) return;
+  CL.meta(c.id).then(function(mt){
+    if (model.cloud !== c || mt.version <= c.version) return;
+    if (c.dirty) { cloudStatus('conflict'); conflictDialog(mt); return; }
+    if (!$('#modal').hidden) return;
+    openModal('<div class="mhead"><h2>Nouvelle version disponible</h2></div><div class="mbody"><p>' + esc(who(mt.updated_by_email)) + ' a enregistré « ' + esc(mt.name) + ' » le ' + esc(fmtDate(mt.updated_at)) + '.</p></div>' +
+      '<div class="mfoot"><button type="button" class="btn" data-m="cancel">Plus tard</button><button type="button" class="btn primary" data-m="reload">Charger sa version</button></div>',
+      function(act){ if (act === 'reload') openFromCloud(c.id); });
+  }, function(){});
+}
+function conflictDialog(mt){
   var c = model.cloud;
-  SP.item(c.itemId).then(function(meta){ show(meta); }, function(){ show(null); });
-  function show(meta){
-    openModal('<div class="mhead"><div class="eyebrow">SharePoint</div><h2>Quelqu’un a modifié ce modèle entre-temps</h2></div><div class="mbody">' +
-      '<p>' + (meta ? esc(by(meta) || 'Un collègue') + ' a enregistré « ' + esc(c.name) + ' » le ' + esc(fmtDate(meta.lastModifiedDateTime)) + '.' : 'Le fichier sur SharePoint a changé depuis votre dernière ouverture.') + ' Vos modifications ne sont pas encore envoyées.</p>' +
-      '<ul class="help"><li><b>Garder les deux</b> : votre version devient un nouveau fichier à côté du sien. Recommandé.</li><li><b>Charger sa version</b> : vos modifications non envoyées sont remplacées (Ctrl + Z pour les retrouver).</li><li><b>Écraser</b> : votre version remplace la sienne. Elle reste récupérable dans l’historique des versions.</li></ul></div>' +
-      '<div class="mfoot"><button type="button" class="btn danger" data-m="force" style="margin-right:auto">Écraser</button><button type="button" class="btn" data-m="theirs">Charger sa version</button><button type="button" class="btn primary" data-m="copy">Garder les deux</button></div>',
-      function(act){
-        if (act === 'force') { closeModal(); cloudSave(true, true); return; }
-        if (act === 'theirs') {
-          closeModal();
-          SP.readFile(c.itemId).then(function(r){
-            var m = JSON.parse(r.text); bindCloud(m, r.meta, c.folder); m.id = model.id;
-            cloud.quiet = true; mutate(function(){ model = normalize(m); }); cloud.quiet = false; cloud.dirty = false; cloudStatus('saved');
-            toast('Version de SharePoint chargée · Ctrl + Z pour revenir à la vôtre');
-          }, function(e){ toast(spErr(e)); });
-          return;
-        }
-        if (act === 'copy') {
-          closeModal();
-          var name = c.name.replace(FILE_EXT, '') + ' (version de ' + ((SP.account() && SP.account().name) || 'moi').split(' ')[0] + ')' + FILE_EXT;
-          SP.writeFile({ parentId:c.parentId, name:name, text:JSON.stringify(exportable(model), null, 2) }).then(function(it){
-            var oldId = model.id; model.id = uid('m'); model.name = name.replace(FILE_EXT, ''); bindCloud(model, it, c.folder); cloud.quiet = true; save(); cloud.quiet = false; cloud.dirty = false;
-            lsDel(PFX + oldId); lsSet(PKEY, JSON.stringify(projIndex().filter(function(x){ return x.id !== oldId; }))); renderAll();
-            cloudStatus('saved'); toast('Votre version est enregistrée sous « ' + name.replace(FILE_EXT, '') + ' »');
-          }, function(e){ toast(spErr(e)); });
-        }
-      });
-  }
+  openModal('<div class="mhead"><div class="eyebrow">En ligne</div><h2>Quelqu’un a modifié ce modèle entre-temps</h2></div><div class="mbody">' +
+    '<p>' + (mt ? esc(who(mt.updated_by_email)) + ' a enregistré « ' + esc(mt.name) + ' » le ' + esc(fmtDate(mt.updated_at)) + '.' : 'Le modèle en ligne a changé depuis votre dernière ouverture.') + ' Vos modifications ne sont pas encore envoyées.</p>' +
+    '<ul class="help"><li><b>Garder les deux</b> : votre version devient un nouveau modèle en ligne, à côté du sien. Recommandé.</li><li><b>Charger sa version</b> : vos modifications non envoyées sont remplacées (Ctrl + Z pour les retrouver).</li><li><b>Écraser</b> : votre version remplace la sienne. Elle reste récupérable dans l’historique des versions.</li></ul></div>' +
+    '<div class="mfoot"><button type="button" class="btn danger" data-m="force" style="margin-right:auto">Écraser</button><button type="button" class="btn" data-m="theirs">Charger sa version</button><button type="button" class="btn primary" data-m="copy">Garder les deux</button></div>',
+    function(act){
+      if (act === 'force') { closeModal(); cloudSave(true, true); return; }
+      if (act === 'theirs') {
+        closeModal();
+        CL.get(c.id).then(function(r){
+          var m = r.data; m.id = model.id; m.name = r.name; bindCloud(m, r);
+          cloud.quiet = true; mutate(function(){ model = normalize(m); }); cloud.quiet = false; cloud.dirty = false; cloudStatus(cloudState());
+          toast('Version en ligne chargée · Ctrl + Z pour revenir à la vôtre');
+        }, function(e){ toast(cloudErr(e)); });
+        return;
+      }
+      if (act === 'copy') {
+        closeModal();
+        var name = model.name + ' (version de ' + who(CL.email()) + ')';
+        CL.create(name, exportable(Object.assign({}, model, { name:name }))).then(function(r){
+          var oldId = model.id; r.role = 'owner'; model.id = uid('m'); model.name = name; bindCloud(model, r);
+          cloud.quiet = true; save(); cloud.quiet = false; cloud.dirty = false;
+          lsDel(PFX + oldId); lsSet(PKEY, JSON.stringify(projIndex().filter(function(x){ return x.id !== oldId; }))); renderAll();
+          cloudStatus('saved'); toast('Votre version est en ligne sous « ' + name + ' »');
+        }, function(e){ toast(cloudErr(e)); });
+      }
+    });
 }
 function versionsDialog(){
   var c = model.cloud; if (!c) return;
-  openModal('<div class="mhead"><div class="eyebrow">SharePoint · ' + esc(c.name.replace(FILE_EXT, '')) + '</div><h2>Historique des versions</h2></div><div class="mbody"><ul class="projlist" id="vlist"><li class="hint" style="padding:12px">Chargement…</li></ul></div>' +
+  openModal('<div class="mhead"><div class="eyebrow">En ligne · ' + esc(model.name) + '</div><h2>Historique des versions</h2></div><div class="mbody"><ul class="projlist" id="vlist"><li class="hint" style="padding:12px">Chargement…</li></ul>' +
+    '<p class="hint">Une version est conservée par séance de travail (changement d’auteur ou 10 minutes sans enregistrement), jusqu’à 50.</p></div>' +
     '<div class="mfoot"><button type="button" class="btn" data-m="cancel">Fermer</button></div>',
     function(act, b){
       if (act !== 'restore') return;
       if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Confirmer'; return; }
-      SP.versionText(c.itemId, b.dataset.vid).then(function(t){
-        var m = JSON.parse(t); m.id = model.id; m.cloud = model.cloud;
+      CL.versionData(b.dataset.vid).then(function(v){
+        var m = v.data; m.id = model.id; m.name = v.name; m.cloud = model.cloud;
         closeModal(); mutate(function(){ model = normalize(m); });
         toast('Version restaurée · elle sera envoyée comme nouvelle version');
-      }, function(e){ toast(spErr(e)); });
+      }, function(e){ toast(cloudErr(e)); });
     });
-  SP.versions(c.itemId).then(function(vs){
+  CL.versions(c.id).then(function(vs){
     var ul = $('#vlist'); if (!ul) return;
-    ul.innerHTML = vs.map(function(v, i){
-      return '<li class="prow' + (i === 0 ? ' cur' : '') + '"><div class="pinfo"><div class="pname">Version ' + esc(v.id) + (i === 0 ? ' <span class="pbadge">Actuelle</span>' : '') + '</div>' +
-        '<div class="pmeta">' + esc(fmtDate(v.lastModifiedDateTime)) + (by(v) ? ' · ' + esc(by(v)) : '') + '</div></div>' +
-        (i === 0 || readonly ? '' : '<div class="pacts"><button type="button" class="btn sm" data-m="restore" data-vid="' + esc(v.id) + '">Restaurer</button></div>') + '</li>';
-    }).join('') || '<li class="hint" style="padding:12px">Aucune version.</li>';
-  }, function(e){ var ul = $('#vlist'); if (ul) ul.innerHTML = '<li class="err">' + esc(spErr(e)) + '</li>'; });
+    ul.innerHTML = '<li class="prow cur"><div class="pinfo"><div class="pname">Version ' + c.version + ' <span class="pbadge">Actuelle</span></div><div class="pmeta">' + esc(fmtDate(c.savedAt)) + '</div></div></li>' +
+      vs.map(function(v){
+        return '<li class="prow"><div class="pinfo"><div class="pname">Version ' + v.version + '</div><div class="pmeta">' + esc(fmtDate(v.saved_at)) + ' · ' + esc(v.saved_by_email) + '</div></div>' +
+          (readonly ? '' : '<div class="pacts"><button type="button" class="btn sm" data-m="restore" data-vid="' + v.id + '">Restaurer</button></div>') + '</li>';
+      }).join('');
+  }, function(e){ var ul = $('#vlist'); if (ul) ul.innerHTML = '<li class="err">' + esc(cloudErr(e)) + '</li>'; });
 }
-function shareLink(){ return location.origin + location.pathname + '#sp-' + model.cloud.itemId; }
+function shareLink(){ return location.origin + location.pathname + '#m-' + model.cloud.id; }
 function copyText(t, okMsg){
   var done = function(){ toast(okMsg); };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, function(){ prompt0(t); }); else prompt0(t);
   function prompt0(x){ openModal('<div class="mhead"><h2>Lien à copier</h2></div><div class="mbody"><input class="field" id="cp-link" value="' + esc(x) + '" readonly></div><div class="mfoot"><button type="button" class="btn primary" data-m="cancel">Fermer</button></div>', function(){}); var f = $('#cp-link'); if (f) f.select(); }
 }
-function spDialog(){
-  if (!SP.enabled) return;
-  var path = [{ id:'root', name:'Documents' }], items = [];
-  openModal('<div class="mhead"><div class="eyebrow">Microsoft 365 · site MisterDesigner</div><h2>SharePoint</h2></div><div class="mbody" id="spbody"><p class="hint">Connexion…</p></div>' +
-    '<div class="mfoot" id="spfoot"><button type="button" class="btn" data-m="cancel">Fermer</button></div>', handle);
-  SP.init().then(draw, function(e){ $('#spbody').innerHTML = '<p class="err">' + esc(spErr(e)) + '</p>'; });
-  function here(){ return path[path.length - 1]; }
+function takePending(){ var p = lsGet(PENDING); if (p) lsDel(PENDING); return p; }
+function afterLogin(){
+  var p = takePending();
+  if (p) { openFromCloud(p); return; }
+  if (model.cloud && model.cloud.dirty) cloudSave(false); else checkRemote();
+}
+var cloudRedraw = null;
+function cloudDialog(){
+  if (!CL.enabled) return;
+  var sentTo = '', items = [];
+  openModal('<div class="mhead"><div class="eyebrow">MS-Designer en ligne</div><h2>Modèles en ligne</h2></div><div class="mbody" id="clbody"><p class="hint">Connexion…</p></div>' +
+    '<div class="mfoot" id="clfoot"><button type="button" class="btn" data-m="cancel">Fermer</button></div>', handle);
+  cloudRedraw = draw;
+  CL.init().then(draw, function(e){ var b = $('#clbody'); if (b) b.innerHTML = '<p class="err">' + esc(cloudErr(e)) + '</p>'; });
+  function onEnter(id, act){ var f = $(id); if (f) f.addEventListener('keydown', function(e){ if (e.key === 'Enter') { e.preventDefault(); handle(act, f); } }); }
   function draw(){
-    var body = $('#spbody'); if (!body) return;
-    if (!SP.account()) {
-      body.innerHTML = '<p>Connectez-vous avec votre compte Microsoft DATATILT pour ouvrir, enregistrer et partager les modélisations du site MisterDesigner.</p>' +
-        '<p class="hint">Vous ne verrez que les dossiers auxquels vous avez accès dans SharePoint.</p>';
-      $('#spfoot').innerHTML = '<button type="button" class="btn" data-m="cancel">Fermer</button><button type="button" class="btn primary" data-m="login">Se connecter avec Microsoft</button>';
+    var body = $('#clbody'); if (!body) return;
+    if (!CL.user()) {
+      if (!sentTo) {
+        body.innerHTML = '<p>Mettez vos modèles en ligne pour les retrouver sur n’importe quel PC et les partager avec vos collègues.</p>' +
+          '<label class="eyebrow" for="cl-email">Adresse e-mail</label><input class="field" id="cl-email" type="email" autocomplete="email" placeholder="prenom.nom@entreprise.fr" value="' + esc(lsGet(LASTMAIL) || '') + '">' +
+          '<p class="hint">Vous recevrez un lien de connexion par e-mail. Aucun mot de passe.</p>';
+        $('#clfoot').innerHTML = '<button type="button" class="btn" data-m="cancel">Fermer</button><button type="button" class="btn primary" data-m="send">Recevoir le lien</button>';
+        onEnter('#cl-email', 'send'); var f = $('#cl-email'); if (f) f.focus();
+      } else {
+        body.innerHTML = '<p>Un e-mail vient d’être envoyé à <b>' + esc(sentTo) + '</b>.</p><p>Cliquez sur le lien qu’il contient, ou saisissez ici le code reçu :</p>' +
+          '<input class="field" id="cl-code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="Code à 6 chiffres" aria-label="Code reçu par e-mail">' +
+          '<p class="hint">Rien reçu ? Regardez dans les indésirables, puis <button type="button" class="linkbtn" data-m="reset">changez d’adresse ou redemandez un lien</button>.</p>';
+        $('#clfoot').innerHTML = '<button type="button" class="btn" data-m="cancel">Fermer</button><button type="button" class="btn primary" data-m="verify">Valider le code</button>';
+        onEnter('#cl-code', 'verify'); var g = $('#cl-code'); if (g) g.focus();
+      }
       return;
     }
     var c = model.cloud;
     body.innerHTML =
-      (c ? '<div class="spcur"><div><div class="eyebrow">Projet ouvert</div><div class="pname">' + esc(c.name.replace(FILE_EXT, '')) + '</div><div class="pmeta">' + esc(c.folder ? 'Dossier ' + c.folder : 'Site MisterDesigner') + (c.savedAt ? ' · envoyé le ' + esc(fmtDate(c.savedAt)) : '') + '</div></div>' +
-        '<div class="pacts"><button type="button" class="btn sm" data-m="save">Enregistrer maintenant</button><button type="button" class="btn sm" data-m="versions">Versions</button><button type="button" class="btn sm" data-m="link">Copier le lien</button>' + (c.webUrl ? '<a class="btn sm" href="' + esc(c.webUrl.replace(/\/[^\/]*$/, '')) + '" target="_blank" rel="noopener">Gérer l’accès</a>' : '') + '</div></div>' : '') +
-      '<nav class="crumbs" aria-label="Dossiers">' + path.map(function(p, i){ return i === path.length - 1 ? '<b>' + esc(p.name) + '</b>' : '<button type="button" class="linkbtn" data-m="up" data-i="' + i + '">' + esc(p.name) + '</button> ›'; }).join(' ') + '</nav>' +
-      '<ul class="projlist" id="splist"><li class="hint" style="padding:12px">Chargement…</li></ul>' +
-      '<div class="row" style="margin-top:12px"><input class="field" id="sp-newdir" placeholder="Nouveau dossier (ex. client)" aria-label="Nom du nouveau dossier"><button type="button" class="btn sm" data-m="mkdir">Créer le dossier</button></div>' +
-      (c && c.parentId === here().id ? '' : '<div class="row" style="margin-top:8px"><input class="field" id="sp-name" value="' + esc(model.name) + '" aria-label="Nom du fichier"><button type="button" class="btn sm primary" data-m="saveas">' + (c ? 'Enregistrer une copie ici' : 'Enregistrer le projet ici') + '</button></div>');
-    $('#spfoot').innerHTML = '<span class="hint" style="margin:0 auto 0 0">Connecté : ' + esc(SP.account().name || SP.account().username) + ' · <button type="button" class="linkbtn" data-m="logout">Se déconnecter</button></span><button type="button" class="btn" data-m="cancel">Fermer</button>';
-    SP.children(here().id).then(function(list){
+      (c ? '<div class="spcur"><div><div class="eyebrow">Projet ouvert · ' + esc(ROLES[c.role]) + '</div><div class="pname">' + esc(model.name) + '</div><div class="pmeta">' + (c.role !== 'owner' ? 'Partagé par ' + esc(c.owner) + ' · ' : '') + (c.savedAt ? 'envoyé le ' + esc(fmtDate(c.savedAt)) : '') + '</div></div>' +
+          '<div class="pacts">' + (c.role === 'read' ? '' : '<button type="button" class="btn sm" data-m="save">Enregistrer maintenant</button>') + '<button type="button" class="btn sm" data-m="versions">Versions</button><button type="button" class="btn sm" data-m="link">Copier le lien</button></div></div>' +
+          (c.role === 'owner' ? '<div class="eyebrow">Partagé avec</div><ul class="projlist" id="cl-shares" style="margin:6px 0 8px"><li class="hint" style="padding:8px 12px">Chargement…</li></ul>' +
+            '<div class="row"><input class="field" id="cl-inv" type="email" placeholder="E-mail du collègue" aria-label="E-mail du collègue à inviter"><select class="field" id="cl-role" aria-label="Droit accordé" style="flex:0 0 auto;width:auto"><option value="edit">Peut modifier</option><option value="read">Lecture seule</option></select><button type="button" class="btn sm primary" data-m="invite">Inviter</button></div>' +
+            '<p class="hint" style="margin-bottom:16px">Le collègue se connecte avec cette adresse et retrouve le modèle dans sa liste. Envoyez-lui le lien pour qu’il l’ouvre directement.</p>' : '')
+        : '<div class="spcur"><div><div class="eyebrow">Projet ouvert</div><div class="pname">' + esc(model.name) + '</div><div class="pmeta">Enregistré seulement sur ce PC</div></div><div class="pacts"><button type="button" class="btn sm primary" data-m="publish">Mettre en ligne</button></div></div>') +
+      '<div class="eyebrow">Mes modèles et ceux partagés avec moi</div><ul class="projlist" id="cl-list" style="margin-top:6px"><li class="hint" style="padding:12px">Chargement…</li></ul>';
+    $('#clfoot').innerHTML = '<span class="hint" style="margin:0 auto 0 0">Connecté : ' + esc(CL.email()) + ' · <button type="button" class="linkbtn" data-m="logout">Se déconnecter</button></span><button type="button" class="btn" data-m="cancel">Fermer</button>';
+    onEnter('#cl-inv', 'invite');
+    if (c && c.role === 'owner') drawShares();
+    CL.list().then(function(list){
       items = list;
-      var dirs = list.filter(function(x){ return x.folder; }).sort(function(a, b){ return a.name.localeCompare(b.name); });
-      var files = list.filter(function(x){ return x.file && x.name.slice(-FILE_EXT.length) === FILE_EXT; }).sort(function(a, b){ return String(b.lastModifiedDateTime).localeCompare(String(a.lastModifiedDateTime)); });
-      var ul = $('#splist'); if (!ul) return;
-      ul.innerHTML = dirs.map(function(d){
-        return '<li class="prow"><div class="pinfo"><div class="pname">' + esc(d.name) + '</div><div class="pmeta">Dossier · ' + (d.folder.childCount || 0) + ' élément' + ((d.folder.childCount || 0) > 1 ? 's' : '') + '</div></div><div class="pacts"><button type="button" class="btn sm" data-m="cd" data-id="' + esc(d.id) + '">Ouvrir le dossier</button></div></li>';
-      }).join('') + files.map(function(f){
-        var cur = c && c.itemId === f.id;
-        return '<li class="prow' + (cur ? ' cur' : '') + '"><div class="pinfo"><div class="pname">' + esc(f.name.replace(FILE_EXT, '')) + (cur ? ' <span class="pbadge">Ouvert</span>' : '') + '</div><div class="pmeta">Modifié le ' + esc(fmtDate(f.lastModifiedDateTime)) + (by(f) ? ' par ' + esc(by(f)) : '') + '</div></div>' +
-          (cur ? '' : '<div class="pacts"><button type="button" class="btn sm" data-m="open" data-id="' + esc(f.id) + '">Ouvrir</button></div>') + '</li>';
-      }).join('') || '<li class="hint" style="padding:12px">Ce dossier ne contient encore aucune modélisation.</li>';
-    }, function(e){ var ul = $('#splist'); if (ul) ul.innerHTML = '<li class="err">' + esc(spErr(e)) + '</li>'; });
+      var ul = $('#cl-list'); if (!ul) return;
+      ul.innerHTML = list.map(function(x){
+        var cur = c && c.id === x.id;
+        return '<li class="prow' + (cur ? ' cur' : '') + '"><div class="pinfo"><div class="pname">' + esc(x.name) + (cur ? ' <span class="pbadge">Ouvert</span>' : '') + (x.role !== 'owner' ? ' <span class="pbadge cl">' + esc(ROLES[x.role]) + '</span>' : '') + '</div>' +
+          '<div class="pmeta">Modifié le ' + esc(fmtDate(x.updated_at)) + ' par ' + esc(x.updated_by_email === CL.email() ? 'vous' : x.updated_by_email) + (x.role !== 'owner' ? ' · de ' + esc(x.owner_email) : '') + '</div></div>' +
+          '<div class="pacts">' + (cur ? '' : '<button type="button" class="btn sm" data-m="open" data-id="' + x.id + '">Ouvrir</button>') +
+          (x.role === 'owner' ? '<button type="button" class="btn sm danger" data-m="del" data-id="' + x.id + '">Supprimer</button>' : '') + '</div></li>';
+      }).join('') || '<li class="hint" style="padding:12px">Aucun modèle en ligne pour l’instant.</li>';
+    }, function(e){ var ul = $('#cl-list'); if (ul) ul.innerHTML = '<li class="err">' + esc(cloudErr(e)) + '</li>'; });
   }
+  function drawShares(){
+    var c = model.cloud;
+    CL.shares(c.id).then(function(list){
+      var ul = $('#cl-shares'); if (!ul) return;
+      ul.innerHTML = list.map(function(s){
+        return '<li class="prow" style="padding:6px 12px"><div class="pinfo"><div class="pname" style="font-weight:500">' + esc(s.email) + '</div></div><div class="pacts">' +
+          '<select class="field" data-share="' + esc(s.email) + '" aria-label="Droit de ' + esc(s.email) + '" style="width:auto;padding:4px 6px"><option value="edit"' + (s.role === 'edit' ? ' selected' : '') + '>Peut modifier</option><option value="read"' + (s.role === 'read' ? ' selected' : '') + '>Lecture seule</option></select>' +
+          '<button type="button" class="btn sm" data-m="unshare" data-mail="' + esc(s.email) + '">Retirer</button></div></li>';
+      }).join('') || '<li class="hint" style="padding:8px 12px">Personne pour l’instant.</li>';
+      ul.onchange = function(e){
+        var mail = e.target.dataset.share; if (!mail) return;
+        CL.share(c.id, mail, e.target.value).then(function(){ toast(mail + ' : ' + ROLES[e.target.value].toLowerCase()); }, function(er){ toast(cloudErr(er)); drawShares(); });
+      };
+    }, function(e){ var ul = $('#cl-shares'); if (ul) ul.innerHTML = '<li class="err">' + esc(cloudErr(e)) + '</li>'; });
+  }
+  function busy(b, on){ if (b && b.tagName === 'BUTTON') b.disabled = on; }
   function handle(act, b){
-    if (act === 'login') { SP.login().then(draw, function(e){ if (!/cancel|user_cancelled/i.test(String(e && (e.errorCode || e.message)))) toast(spErr(e)); }); return; }
-    if (act === 'logout') { SP.logout().then(draw); cloudStatus(model.cloud ? 'dirty' : 'off'); return; }
-    if (act === 'up') { path = path.slice(0, +b.dataset.i + 1); draw(); return; }
-    if (act === 'cd') { var d = items.filter(function(x){ return x.id === b.dataset.id; })[0]; if (d) { path.push({ id:d.id, name:d.name }); draw(); } return; }
-    if (act === 'open') { openFromCloud(b.dataset.id, here().name === 'Documents' ? '' : here().name); return; }
-    if (act === 'save') { cloudSave(true).then(draw); return; }
-    if (act === 'versions') { versionsDialog(); return; }
-    if (act === 'link') { copyText(shareLink(), 'Lien copié : vos collègues ayant accès au dossier ouvriront directement ce modèle'); return; }
-    if (act === 'mkdir') {
-      var n = ($('#sp-newdir').value || '').trim().replace(/[\\\/:*?"<>|#%]/g, '-'); if (!n) return;
-      SP.mkdir(here().id, n).then(function(){ toast('Dossier « ' + n + ' » créé'); draw(); }, function(e){ toast(spErr(e)); });
+    if (act === 'send') {
+      var mail = ($('#cl-email').value || '').trim().toLowerCase();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) { toast('Saisissez une adresse e-mail valide'); return; }
+      busy(b, true);
+      CL.sendLink(mail).then(function(){ sentTo = mail; lsSet(LASTMAIL, mail); draw(); }, function(e){ busy(b, false); toast(cloudErr(e)); });
       return;
     }
-    if (act === 'saveas') {
-      var base = ($('#sp-name').value || model.name).trim().replace(/[\\\/:*?"<>|#%]/g, '-') || 'Modélisation';
-      var copy = !!model.cloud, folder = here(), m = copy ? normalize(JSON.parse(JSON.stringify(exportable(model)))) : model;
-      if (copy) m.id = uid('m');
-      m.name = base; m.sample = false;
-      SP.writeFile({ parentId:folder.id, name:base + FILE_EXT, text:JSON.stringify(exportable(m), null, 2) }).then(function(it){
-        bindCloud(m, it, folder.id === 'root' ? '' : folder.name);
-        if (copy) { cloud.quiet = true; openProject(m); cloud.quiet = false; } else { cloud.quiet = true; save(); cloud.quiet = false; renderAll(); }
-        cloud.dirty = false; cloudStatus('saved'); toast('« ' + base + ' » enregistré dans SharePoint' + (folder.id === 'root' ? '' : ' / ' + folder.name)); draw();
-      }, function(e){ toast(e.status === 409 ? 'Un fichier « ' + base + ' » existe déjà dans ce dossier : choisissez un autre nom.' : spErr(e)); });
+    if (act === 'verify') {
+      var code = ($('#cl-code').value || '').replace(/\D/g, ''); if (code.length < 6) { toast('Saisissez le code reçu par e-mail'); return; }
+      busy(b, true);
+      // la suite (toast, ouverture du lien en attente) passe par CL.onAuth, comme pour le lien magique
+      CL.verify(sentTo, code).then(function(){ draw(); },
+        function(e){ busy(b, false); toast(e.status === 429 ? cloudErr(e) : 'Code incorrect ou expiré. Redemandez un lien si besoin.'); });
+      return;
+    }
+    if (act === 'reset') { sentTo = ''; draw(); return; }
+    if (act === 'logout') { CL.logout().then(draw); return; }
+    if (act === 'publish') { busy(b, true); publish().then(draw, function(e){ busy(b, false); toast(cloudErr(e)); }); return; }
+    if (act === 'save') { cloudSave(true).then(draw); return; }
+    if (act === 'versions') { versionsDialog(); return; }
+    if (act === 'link') { copyText(shareLink(), 'Lien copié : les personnes invitées ouvriront directement ce modèle'); return; }
+    if (act === 'open') { openFromCloud(b.dataset.id); return; }
+    if (act === 'del') {
+      if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Supprimer pour tous ?'; return; }
+      var id = b.dataset.id, x = items.filter(function(i){ return i.id === id; })[0];
+      CL.remove(id).then(function(){
+        var local = localFor(id); // keep the local copy, now detached
+        if (local) { delete local.cloud; if (local.id === model.id) { delete model.cloud; cloud.quiet = true; save(); cloud.quiet = false; cloudStatus('off'); } else { lsSet(PFX + local.id, JSON.stringify(local)); touchIndex(local); } }
+        toast('« ' + (x ? x.name : 'Modèle') + ' » supprimé en ligne · la copie de ce PC est conservée'); draw();
+      }, function(e){ toast(cloudErr(e)); });
+      return;
+    }
+    if (act === 'invite') {
+      var inv = ($('#cl-inv').value || '').trim().toLowerCase(), role = $('#cl-role').value;
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(inv)) { toast('Saisissez l’e-mail du collègue'); return; }
+      if (inv === CL.email()) { toast('Vous êtes déjà propriétaire de ce modèle'); return; }
+      CL.share(model.cloud.id, inv, role).then(function(){
+        $('#cl-inv').value = ''; drawShares();
+        copyText(shareLink(), inv + ' est invité (' + ROLES[role].toLowerCase() + ') · lien copié, envoyez-le-lui');
+      }, function(e){ toast(cloudErr(e)); });
+      return;
+    }
+    if (act === 'unshare') {
+      if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Confirmer'; return; }
+      CL.unshare(model.cloud.id, b.dataset.mail).then(function(){ toast('Accès retiré à ' + b.dataset.mail); drawShares(); }, function(e){ toast(cloudErr(e)); });
     }
   }
 }
-function spBoot(){
-  if (!SP.enabled) return;
-  $('#btn-sp').hidden = false;
-  cloudStatus(model.cloud ? (model.cloud.dirty ? 'dirty' : 'saved') : 'off');
-  var m = /^#sp-([A-Za-z0-9!_.\-]+)$/.exec(location.hash);
-  SP.init().then(function(acc){
-    if (m) {
-      history.replaceState(null, '', location.pathname);
-      if (acc) openFromCloud(m[1]);
-      else { toast('Connectez-vous pour ouvrir le modèle partagé'); spDialog(); var wait = setInterval(function(){ if (SP.account()) { clearInterval(wait); openFromCloud(m[1]); } }, 800); setTimeout(function(){ clearInterval(wait); }, 300000); }
-    } else if (acc && model.cloud && model.cloud.dirty) cloudSave(false);
-  }, function(){});
-  // a colleague may have saved while this tab was in the background
-  window.addEventListener('focus', function(){
-    var c = model.cloud; if (!c || !SP.account() || cloud.busy) return;
-    SP.item(c.itemId).then(function(meta){
-      if (!model.cloud || model.cloud.itemId !== meta.id || meta.eTag === model.cloud.eTag) return;
-      if (cloud.dirty) { cloudStatus('conflict'); conflictDialog(); return; }
-      openModal('<div class="mhead"><h2>Nouvelle version disponible</h2></div><div class="mbody"><p>' + esc(by(meta) || 'Un collègue') + ' a enregistré « ' + esc(c.name.replace(FILE_EXT, '')) + ' » le ' + esc(fmtDate(meta.lastModifiedDateTime)) + '.</p></div>' +
-        '<div class="mfoot"><button type="button" class="btn" data-m="cancel">Plus tard</button><button type="button" class="btn primary" data-m="reload">Charger sa version</button></div>',
-        function(act){ if (act === 'reload') openFromCloud(c.itemId, c.folder); });
-    }, function(){});
+function cloudBoot(){
+  if (!CL.enabled) return;
+  $('#btn-cloud').hidden = false;
+  cloudStatus(cloudState());
+  function takeHash(){
+    var m = /^#m-([0-9a-f-]{36})$/i.exec(location.hash); if (!m) return false;
+    lsSet(PENDING, m[1].toLowerCase()); history.replaceState(null, '', location.pathname); return true;
+  }
+  takeHash();
+  // link pasted into a tab where the app is already open: no reload, only a hash change
+  window.addEventListener('hashchange', function(){
+    if (!takeHash()) return;
+    CL.init().then(function(u){ if (u) afterLogin(); else { toast('Connectez-vous pour ouvrir le modèle partagé'); cloudDialog(); } }, function(e){ toast(cloudErr(e)); });
   });
+  CL.init().then(function(u){
+    if (u) afterLogin();
+    else if (lsGet(PENDING)) { toast('Connectez-vous pour ouvrir le modèle partagé'); cloudDialog(); }
+  }, function(){});
+  CL.onAuth(function(u){
+    if (u) { toast('Connecté : ' + CL.email()); afterLogin(); }
+    cloudStatus(cloudState());
+    if ($('#clbody') && cloudRedraw) cloudRedraw();
+  });
+  window.addEventListener('focus', checkRemote);
+  window.addEventListener('online', function(){ if (cloud.dirty || (model.cloud && model.cloud.dirty)) cloudSave(false); });
 }
 
 /* ---------- toolbar ---------- */
@@ -1773,7 +1843,7 @@ $('#btn-new').addEventListener('click', function(){
   newProject();
 });
 $('#btn-projects').addEventListener('click', projectsDialog);
-$('#btn-sp').addEventListener('click', spDialog);
+$('#btn-cloud').addEventListener('click', cloudDialog);
 $('#btn-import').addEventListener('click', function(){ var f = $('#file'); f.value = ''; f.click(); });
 (function(){
   var btn = $('#btn-export'), menu = $('#export-menu');
@@ -1807,7 +1877,7 @@ document.addEventListener('keydown', function(e){
     var k = e.key.toLowerCase();
     if (k === 'z') { e.preventDefault(); if (e.shiftKey) doRedo(); else doUndo(); return; }
     if (k === 'y') { e.preventDefault(); doRedo(); return; }
-    if (k === 's' && SP.enabled) { e.preventDefault(); cloudSave(true); return; }
+    if (k === 's' && CL.enabled) { e.preventDefault(); cloudSave(true); return; }
     if (k === 'a' && tab === 'schema') { e.preventDefault(); setSelIds(model.cubes.map(function(c){ return c.id; })); renderAll(); return; }
   }
   if (typing) return;
@@ -2572,12 +2642,13 @@ document.addEventListener('keydown', function(e){
 /* ---------- boot ---------- */
 model = load();
 applyPanes(false);
+if (CL.enabled && model.cloud && model.cloud.role === 'read') readonly = true;
 renderAll();
 requestAnimationFrame(fit);
 if (embedded) $('#saved').textContent = 'Fichier partagé';
 else if (model.updated) { var d0 = new Date(model.updated); $('#saved').textContent = 'Enregistré · ' + String(d0.getHours()).padStart(2,'0') + ':' + String(d0.getMinutes()).padStart(2,'0'); }
 else $('#saved').textContent = 'Exemple';
-spBoot();
+cloudBoot();
 if (restoredMsg) toast(restoredMsg);
 if (profileFirstRun && !embedded) welcomeDialog();
 })();
