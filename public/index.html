@@ -117,6 +117,9 @@ a.btn{text-decoration:none}
 .types button svg{flex:none}
 .robadge{font-size:12px;color:var(--ink-2);border:1px dashed var(--line);padding:4px 9px;border-radius:12px}
 .ro .edit-only{display:none!important}
+/* exported HTML page: view only, no tools */
+.viewer .panes,.viewer .actions,.viewer .stagebar,.viewer #saved,.viewer #btn-projects,.viewer #btn-cloud,.viewer .main .left,.viewer .main .right,.viewer .node .tg{display:none!important}
+.viewer #mname{cursor:default}
 
 /* main */
 .main{flex:1 1 auto;display:flex;min-height:0}
@@ -337,7 +340,7 @@ textarea.field{resize:vertical;min-height:64px}
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M4 21h16"></path></svg>Exporter
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
         <div class="menu" id="export-menu" role="menu" aria-label="Format d'export" hidden>
-          <button type="button" role="menuitem" data-exp="html"><span class="mi-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"></path></svg></span><span><span class="mi-t">Page HTML</span><span class="mi-d">À partager : s'ouvre dans un navigateur, en lecture, et se réimporte</span></span></button>
+          <button type="button" role="menuitem" data-exp="html"><span class="mi-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"></path></svg></span><span><span class="mi-t">Page HTML</span><span class="mi-d">Pour consultation : s'ouvre dans un navigateur, sans outils, même hors ligne. Se réimporte dans MS-Designer</span></span></button>
           <button type="button" role="menuitem" data-exp="png"><span class="mi-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="M21 15l-5-5L5 21"></path></svg></span><span><span class="mi-t">Image PNG</span><span class="mi-d">Le schéma en haute résolution, pour Word, PowerPoint ou un e-mail</span></span></button>
           <button type="button" role="menuitem" data-exp="json"><span class="mi-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H6a2 2 0 0 0-2 2v4a2 2 0 0 1-2 2 2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h2M16 3h2a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2 2 2 0 0 0-2 2v4a2 2 0 0 1-2 2h-2"></path></svg></span><span><span class="mi-t">Fichier JSON</span><span class="mi-d">Les données du projet, pour sauvegarder ou réimporter</span></span></button>
           <div class="msep edit-only" role="separator"></div>
@@ -580,10 +583,8 @@ function sample(){
 
 var embedded = (function(){ try { var t = document.getElementById('cd-model').textContent.trim(); return t ? JSON.parse(t) : null; } catch(e){ return null; } })();
 var readonly = !!embedded;
-var storeKey = STORE;
 var model, sel = null, hl = null, tab = 'schema', view = {x:40,y:30,k:1};
 var undo = [], redo = [], pending = null, suppress = false, linkKind = 'rule';
-var restoredMsg = '';
 
 /* ---------- profiles (one per person, stored in this browser on this PC) ---------- */
 var PROF_LIST = 'cubedesigner.profiles', PROF_CUR = 'cubedesigner.profile';
@@ -760,19 +761,14 @@ function load(){
     if (!m) { var l = projIndex().sort(function(a, b){ return String(b.updated).localeCompare(String(a.updated)); }); for (var i = 0; i < l.length && !m; i++) m = loadProject(l[i].id); }
     return m || sample();
   }
-  if (embedded) {
-    var m = normalize(embedded); storeKey = STORE + ':' + m.id;
-    try { var s = localStorage.getItem(storeKey); if (s) { var l = JSON.parse(s); if (l.updated && (!m.updated || l.updated > m.updated)) { restoredMsg = 'Vos modifications locales de ce fichier ont été restaurées.'; return normalize(l); } } } catch(e){}
-    return m;
-  }
+  if (embedded) return normalize(embedded);
   try { var s2 = localStorage.getItem(STORE); if (s2) return normalize(JSON.parse(s2)); } catch(e){}
   return sample();
 }
 function save(){
   model.updated = new Date().toISOString();
   if (!embedded && profile) { if (!model.author) model.author = profName(); model.updatedBy = profName(); }
-  if (embedded) lsSet(storeKey, JSON.stringify(model));
-  else {
+  if (!embedded) {
     if (!lsSet(PFX + model.id, JSON.stringify(model))) toast('Le stockage du navigateur est plein : exportez puis supprimez d\u2019anciens projets');
     touchIndex(model); lsSet(CUR, model.id);
   }
@@ -2665,7 +2661,7 @@ $('#pane-focus').addEventListener('click', function(){
   applyPanes(true); requestAnimationFrame(fit);
 });
 document.addEventListener('keydown', function(e){
-  if (!e.altKey || e.ctrlKey || e.metaKey) return;
+  if (!e.altKey || e.ctrlKey || e.metaKey || embedded) return;
   var map = { Digit1:'pane-left', Digit2:'pane-right', Digit0:'pane-focus' }, id = map[e.code];
   if (id) { e.preventDefault(); $('#' + id).click(); }
 });
@@ -2676,11 +2672,10 @@ applyPanes(false);
 if (CL.enabled && model.cloud && model.cloud.role === 'read') readonly = true;
 renderAll();
 requestAnimationFrame(fit);
-if (embedded) $('#saved').textContent = 'Fichier partagé';
+if (embedded) { $('#app').classList.add('viewer'); var rz = 0; window.addEventListener('resize', function(){ clearTimeout(rz); rz = setTimeout(function(){ if (tab === 'schema') fit(); }, 150); }); }
 else if (model.updated) { var d0 = new Date(model.updated); $('#saved').textContent = 'Enregistré · ' + String(d0.getHours()).padStart(2,'0') + ':' + String(d0.getMinutes()).padStart(2,'0'); }
 else $('#saved').textContent = 'Exemple';
 cloudBoot();
-if (restoredMsg) toast(restoredMsg);
 if (profileFirstRun && !embedded) welcomeDialog();
 })();
 </script>

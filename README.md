@@ -10,7 +10,7 @@
 - Sélection multiple (Maj + clic, Maj + glisser, Ctrl + A) : déplacer, changer le type, ajouter une dimension, aligner, supprimer
 - Import d'une matrice Excel « Dims\Cubes » (.xlsx, .csv)
 - Import d'un schéma dessiné avec les formes Excel (cubes, encadrés de dimensions, connecteurs, repères F1/R1, légende de couleurs)
-- Un seul bouton **Exporter** : page HTML autonome (partageable, s'ouvre en lecture, fonctionne hors ligne sans aucun accès réseau, polices intégrées, réimportable), image PNG haute résolution, fichier JSON, sauvegarde de tous les projets du profil
+- Un seul bouton **Exporter** : page HTML de consultation (le schéma et la matrice seuls, sans boutons ni outils de modification, fonctionne hors ligne, polices intégrées, réimportable dans MS-Designer), image PNG haute résolution, fichier JSON, sauvegarde de tous les projets du profil
 - Profils sur le PC : chacun crée le sien (nom, couleur) et retrouve ses projets, son thème et sa disposition ; auteur et dernier modificateur enregistrés dans chaque projet ; sauvegarde / restauration pour changer de PC
 - Plusieurs projets enregistrés dans le navigateur (ouvrir, dupliquer, supprimer), enregistrement automatique, annuler / rétablir
 - Thème clair, sombre ou automatique
