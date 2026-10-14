@@ -1,4 +1,4 @@
-/* Configuration de déploiement de MisterDesigner.
+/* Configuration de déploiement de MS-Designer.
    clientId vide = connexion SharePoint désactivée : l'application reste 100 % locale.
 
    SharePoint en attente des droits administrateur Entra ID (consentement + autorisation du site).

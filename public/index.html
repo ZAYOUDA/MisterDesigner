@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="Éditeur de conception IBM Planning Analytics / TM1 : cubes, dimensions, liens, import Excel et export HTML.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<title>MisterDesigner</title>
+<title>MS-Designer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
 <style id="app-style">
@@ -295,7 +295,7 @@ textarea.field{resize:vertical;min-height:64px}
   <header class="top">
     <div class="brand">
       <svg width="26" height="26" viewBox="0 0 36 36" aria-hidden="true"><polygon points="0,8 8,0 36,0 28,8" fill="#4C88B4"></polygon><rect x="0" y="8" width="28" height="28" fill="#1F5F8B"></rect><polygon points="28,8 36,0 36,28 28,36" fill="#14435F"></polygon></svg>
-      <span>MisterDesigner</span>
+      <span>MS-Designer</span>
     </div>
     <div class="mtitle">
       <span class="eyebrow">Projet</span>
@@ -638,7 +638,7 @@ function colorPicker(sel){
 }
 function welcomeDialog(){
   var n = profProjects(profile.id), color = profile.color || 0;
-  openModal('<div class="mhead"><div class="eyebrow">Bienvenue dans MisterDesigner</div><h2>Créez votre profil</h2></div><div class="mbody">' +
+  openModal('<div class="mhead"><div class="eyebrow">Bienvenue dans MS-Designer</div><h2>Créez votre profil</h2></div><div class="mbody">' +
     '<p style="margin-top:0">Votre profil regroupe vos projets, votre thème et votre disposition sur ce PC. Chaque personne qui utilise ce PC peut créer le sien.</p>' +
     '<label class="l" for="w-name">Votre nom</label><input id="w-name" class="field" placeholder="Ex. Zied Ben Hmida" autocomplete="name">' +
     '<span class="l" style="display:block;font-size:12px;color:var(--ink-2);margin:12px 0 6px">Couleur</span>' + colorPicker(color) +
@@ -714,7 +714,7 @@ function backupProfile(){
   if (!projects.length) { toast('Ce profil n’a encore aucun projet à sauvegarder'); return; }
   var d = new Date(), stamp = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   var who = profName().normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'profil';
-  saveFile('misterdesigner-sauvegarde-' + who + '-' + stamp + '.json', JSON.stringify({ kind:'misterdesigner-backup', v:1, profile:profName(), exported:d.toISOString(), projects:projects }, null, 2));
+  saveFile('ms-designer-sauvegarde-' + who + '-' + stamp + '.json', JSON.stringify({ kind:'misterdesigner-backup', v:1, profile:profName(), exported:d.toISOString(), projects:projects }, null, 2));
 }
 function restoreBackup(b){
   var idx = projIndex(), added = 0, updated = 0, kept = 0;
@@ -1583,8 +1583,8 @@ function openFromCloud(itemId, folderName){
   toast('Ouverture depuis SharePoint…');
   return SP.readFile(itemId).then(function(r){
     var m;
-    try { m = JSON.parse(r.text); } catch(e){ toast('Ce fichier n’est pas une modélisation MisterDesigner lisible'); return; }
-    if (!m || !Array.isArray(m.cubes)) { toast('Ce fichier n’est pas une modélisation MisterDesigner'); return; }
+    try { m = JSON.parse(r.text); } catch(e){ toast('Ce fichier n’est pas une modélisation MS-Designer lisible'); return; }
+    if (!m || !Array.isArray(m.cubes)) { toast('Ce fichier n’est pas une modélisation MS-Designer'); return; }
     bindCloud(m, r.meta, folderName);
     cloud.quiet = true; closeModal(); openProject(m); cloud.quiet = false; cloud.dirty = false;
     cloudStatus('saved'); toast('« ' + model.name + ' » ouvert depuis SharePoint');
@@ -1826,7 +1826,7 @@ function slug(){ return 'conception-' + (model.name.normalize('NFD').replace(/[�
 function buildHTML(){
   var data = JSON.stringify(exportable(model)).replace(/</g, '\\u003c');
   return '<!doctype html>\n<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
-    '<title>' + esc(model.name) + ' — MisterDesigner</title>' +
+    '<title>' + esc(model.name) + ' — MS-Designer</title>' +
     '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">' +
     '<style id="app-style">' + STYLE + '</style></head><body>' + SHELL +
     '<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>' +
@@ -2340,7 +2340,7 @@ $('#file').addEventListener('change', function(e){
         if (m && m.kind === 'misterdesigner-backup' && Array.isArray(m.projects) && !embedded) { restoreBackup(m); return; }
         if (!m || !Array.isArray(m.cubes)) throw new Error('nomodel');
         importModelFile(m);
-      } catch (err) { toast(ext === 'json' ? 'Ce fichier JSON n’est pas un modèle MisterDesigner' : 'Ce fichier HTML ne contient pas de modèle MisterDesigner exporté'); }
+      } catch (err) { toast(ext === 'json' ? 'Ce fichier JSON n’est pas un modèle MS-Designer' : 'Ce fichier HTML ne contient pas de modèle MS-Designer exporté'); }
     };
     rd.readAsText(f);
   } else if (ext === 'xlsx' || ext === 'xls' || ext === 'xlsm') {

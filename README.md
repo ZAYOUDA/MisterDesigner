@@ -1,4 +1,4 @@
-# MisterDesigner
+# MS-Designer
 
 Éditeur de conception pour applications IBM Planning Analytics / TM1 : cubes, axes d'analyse repliables, liens (règles, process TI, feeders, vues), vue matrice Dimensions × Cubes.
 
