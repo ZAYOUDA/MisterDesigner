@@ -89,6 +89,7 @@ button{cursor:pointer}
 .spcur{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;justify-content:space-between;border:1px solid var(--accent);background:var(--accent-soft);border-radius:8px;padding:10px 12px;margin-bottom:14px}
 a.btn{text-decoration:none}
 .saved{font-size:12px;color:var(--ok);background:var(--ok-soft);padding:2px 8px;border-radius:10px;white-space:nowrap}
+.saved.stamp{color:var(--ink-2);background:var(--panel-2)}
 .tabs{display:flex;gap:3px;background:var(--panel-2);border:1px solid var(--line-2);padding:3px;border-radius:8px}
 .tabs button{border:0;background:transparent;padding:6px 14px;border-radius:6px;font-size:13px;color:var(--ink-2)}
 .tabs button[aria-selected="true"]{background:var(--panel);color:var(--ink);font-weight:600;box-shadow:var(--shadow)}
@@ -118,7 +119,7 @@ a.btn{text-decoration:none}
 .robadge{font-size:12px;color:var(--ink-2);border:1px dashed var(--line);padding:4px 9px;border-radius:12px}
 .ro .edit-only{display:none!important}
 /* exported HTML page: view only, no tools */
-.viewer .panes,.viewer .actions,.viewer #saved,.viewer #btn-projects,.viewer #btn-cloud,.viewer .main .left,.viewer .main .right{display:none!important}
+.viewer .panes,.viewer .actions,.viewer #saved:not(.stamp),.viewer #btn-projects,.viewer #btn-cloud,.viewer .main .left,.viewer .main .right{display:none!important}
 .viewer #mname{cursor:default}
 
 /* main */
@@ -1876,7 +1877,7 @@ $('#btn-import').addEventListener('click', function(){ var f = $('#file'); f.val
   menu.addEventListener('click', function(e){
     var b = e.target.closest('[data-exp]'); if (!b) return;
     close(); var k = b.dataset.exp;
-    if (k === 'html') buildHTML().then(function(h){ saveFile(slug() + '.html', h); });
+    if (k === 'html') { var at = new Date(); buildHTML(at).then(function(h){ saveFile(slug() + '-' + stampOf(at) + '.html', h); }); }
     else if (k === 'png') exportPNG();
     else if (k === 'json') saveFile(slug() + '.json', JSON.stringify(exportable(model), null, 2));
     else if (k === 'backup') backupProfile();
@@ -1938,8 +1939,10 @@ function inlineFonts(){
     });
   })).then(function(d){ urls.forEach(function(u, i){ css = css.replace(u, d[i]); }); return css; }, function(){ return ''; });
 }
-function buildHTML(){
-  var data = JSON.stringify(exportable(model)).replace(/</g, '\\u003c');
+function stampOf(d){ return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + '-' + String(d.getHours()).padStart(2,'0') + String(d.getMinutes()).padStart(2,'0'); }
+function buildHTML(at){
+  var m = exportable(model); m.exported = { at:at.toISOString(), by:profile ? profName() : '' }; // shown by the viewer, dropped on re-import
+  var data = JSON.stringify(m).replace(/</g, '\\u003c');
   return inlineFonts().then(function(fonts){
     return '<!doctype html>\n<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
       '<title>' + esc(model.name) + ' — MS-Designer</title>' +
@@ -2672,7 +2675,12 @@ applyPanes(false);
 if (CL.enabled && model.cloud && model.cloud.role === 'read') readonly = true;
 renderAll();
 requestAnimationFrame(fit);
-if (embedded) { $('#app').classList.add('viewer'); var rz = 0; window.addEventListener('resize', function(){ clearTimeout(rz); rz = setTimeout(function(){ if (tab === 'schema') fit(); }, 150); }); }
+if (embedded) {
+  $('#app').classList.add('viewer');
+  var ex = embedded.exported, exd = ex && new Date(ex.at);
+  if (exd && !isNaN(exd)) { var sv = $('#saved'); sv.classList.add('stamp'); sv.textContent = 'Exporté le ' + exd.toLocaleDateString('fr-FR') + ' à ' + String(exd.getHours()).padStart(2,'0') + ':' + String(exd.getMinutes()).padStart(2,'0') + (ex.by ? ' par ' + ex.by : ''); }
+  var rz = 0; window.addEventListener('resize', function(){ clearTimeout(rz); rz = setTimeout(function(){ if (tab === 'schema') fit(); }, 150); });
+}
 else if (model.updated) { var d0 = new Date(model.updated); $('#saved').textContent = 'Enregistré · ' + String(d0.getHours()).padStart(2,'0') + ':' + String(d0.getMinutes()).padStart(2,'0'); }
 else $('#saved').textContent = 'Exemple';
 cloudBoot();
