@@ -774,7 +774,7 @@ function save(){
     touchIndex(model); lsSet(CUR, model.id);
   }
   var d = new Date(model.updated);
-  $('#saved').textContent = 'Enregistré · ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+  if (!embedded) $('#saved').textContent = 'Enregistré · ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
   if (typeof cloud !== 'undefined' && cloud && !cloud.quiet) cloudTouch();
 }
 function snap(){ return JSON.stringify(model); }
