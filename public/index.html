@@ -1036,10 +1036,11 @@ function addCatalogDim(name){
 }
 function deleteSel(){
   if (!sel || readonly) return;
-  if (sel.k === 'cubes') { var ids = sel.ids.slice(); mutate(function(){ model.cubes = model.cubes.filter(function(c){ return ids.indexOf(c.id) < 0; }); model.links = model.links.filter(function(l){ return ids.indexOf(l.from) < 0 && ids.indexOf(l.to) < 0; }); }); sel = null; renderAll(); toast(ids.length + ' cubes supprimés · Ctrl + Z pour annuler'); return; }
-  if (sel.k === 'cube') { var id = sel.id; mutate(function(){ model.cubes = model.cubes.filter(function(c){ return c.id !== id; }); model.links = model.links.filter(function(l){ return l.from !== id && l.to !== id; }); }); }
-  else if (sel.k === 'link') { var lid = sel.id; mutate(function(){ model.links = model.links.filter(function(l){ return l.id !== lid; }); }); }
-  else if (sel.k === 'dim') { var n = sel.name; mutate(function(){ model.dims = model.dims.filter(function(d){ return d.name !== n; }); model.cubes.forEach(function(c){ c.dims = c.dims.filter(function(x){ return x !== n; }); }); if (hl === n) hl = null; }); }
+  var s0 = sel; sel = null; // the panel must not render a cube that no longer exists
+  if (s0.k === 'cubes') { var ids = s0.ids.slice(); mutate(function(){ model.cubes = model.cubes.filter(function(c){ return ids.indexOf(c.id) < 0; }); model.links = model.links.filter(function(l){ return ids.indexOf(l.from) < 0 && ids.indexOf(l.to) < 0; }); }); sel = null; renderAll(); toast(ids.length + ' cubes supprimés · Ctrl + Z pour annuler'); return; }
+  if (s0.k === 'cube') { var id = s0.id; mutate(function(){ model.cubes = model.cubes.filter(function(c){ return c.id !== id; }); model.links = model.links.filter(function(l){ return l.from !== id && l.to !== id; }); }); }
+  else if (s0.k === 'link') { var lid = s0.id; mutate(function(){ model.links = model.links.filter(function(l){ return l.id !== lid; }); }); }
+  else if (s0.k === 'dim') { var n = s0.name; mutate(function(){ model.dims = model.dims.filter(function(d){ return d.name !== n; }); model.cubes.forEach(function(c){ c.dims = c.dims.filter(function(x){ return x !== n; }); }); if (hl === n) hl = null; }); }
   sel = null; renderAll(); toast('Supprimé · Ctrl + Z pour annuler');
 }
 
@@ -1718,6 +1719,7 @@ function cloudDialog(){
       } else {
         body.innerHTML = '<p>Un e-mail vient d’être envoyé à <b>' + esc(sentTo) + '</b>.</p><p>Cliquez sur le lien qu’il contient, ou saisissez ici le code reçu :</p>' +
           '<input class="field" id="cl-code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="Code à 6 chiffres" aria-label="Code reçu par e-mail">' +
+          '<p class="hint">Si le lien s’ouvre dans un autre navigateur, revenez plutôt ici et saisissez le code : chaque navigateur a ses propres projets.</p>' +
           '<p class="hint">Rien reçu ? Regardez dans les indésirables, puis <button type="button" class="linkbtn" data-m="reset">changez d’adresse ou redemandez un lien</button>.</p>';
         $('#clfoot').innerHTML = '<button type="button" class="btn" data-m="cancel">Fermer</button><button type="button" class="btn primary" data-m="verify">Valider le code</button>';
         onEnter('#cl-code', 'verify'); var g = $('#cl-code'); if (g) g.focus();
@@ -1726,12 +1728,12 @@ function cloudDialog(){
     }
     var c = model.cloud;
     body.innerHTML =
-      (c ? '<div class="spcur"><div><div class="eyebrow">Projet ouvert · ' + esc(ROLES[c.role]) + '</div><div class="pname">' + esc(model.name) + '</div><div class="pmeta">' + (c.role !== 'owner' ? 'Partagé par ' + esc(c.owner) + ' · ' : '') + (c.savedAt ? 'envoyé le ' + esc(fmtDate(c.savedAt)) : '') + '</div></div>' +
+      (c ? '<div class="spcur"><div><div class="eyebrow">Projet ouvert · ' + esc(ROLES[c.role]) + '</div><div class="pname">' + esc(model.name) + '</div><div class="pmeta">' + (c.role !== 'owner' ? 'Partagé par ' + esc(c.owner) + ' · ' : '') + model.cubes.length + ' cubes · ' + model.dims.length + ' dimensions · ' + model.links.length + ' liens' + (c.savedAt ? ' · envoyé le ' + esc(fmtDate(c.savedAt)) : '') + '</div></div>' +
           '<div class="pacts">' + (c.role === 'read' ? '' : '<button type="button" class="btn sm" data-m="save">Enregistrer maintenant</button>') + '<button type="button" class="btn sm" data-m="versions">Versions</button><button type="button" class="btn sm" data-m="link">Copier le lien</button></div></div>' +
           (c.role === 'owner' ? '<div class="eyebrow">Partagé avec</div><ul class="projlist" id="cl-shares" style="margin:6px 0 8px"><li class="hint" style="padding:8px 12px">Chargement…</li></ul>' +
             '<div class="row"><input class="field" id="cl-inv" type="email" placeholder="E-mail du collègue" aria-label="E-mail du collègue à inviter"><select class="field" id="cl-role" aria-label="Droit accordé" style="flex:0 0 auto;width:auto"><option value="edit">Peut modifier</option><option value="read">Lecture seule</option></select><button type="button" class="btn sm primary" data-m="invite">Inviter</button></div>' +
             '<p class="hint" style="margin-bottom:16px">Le collègue se connecte avec cette adresse et retrouve le modèle dans sa liste. Envoyez-lui le lien pour qu’il l’ouvre directement.</p>' : '')
-        : '<div class="spcur"><div><div class="eyebrow">Projet ouvert</div><div class="pname">' + esc(model.name) + '</div><div class="pmeta">Enregistré seulement sur ce PC</div></div><div class="pacts"><button type="button" class="btn sm primary" data-m="publish">Mettre en ligne</button></div></div>') +
+        : '<div class="spcur"><div><div class="eyebrow">Projet ouvert</div><div class="pname">' + esc(model.name) + '</div><div class="pmeta">' + model.cubes.length + ' cubes · ' + model.dims.length + ' dimensions · ' + model.links.length + ' liens · enregistré seulement sur ce PC</div></div><div class="pacts"><button type="button" class="btn sm primary" data-m="publish">Mettre en ligne</button></div></div>') +
       '<div class="eyebrow">Mes modèles et ceux partagés avec moi</div><ul class="projlist" id="cl-list" style="margin-top:6px"><li class="hint" style="padding:12px">Chargement…</li></ul>';
     $('#clfoot').innerHTML = '<span class="hint" style="margin:0 auto 0 0">Connecté : ' + esc(CL.email()) + ' · <button type="button" class="linkbtn" data-m="logout">Se déconnecter</button></span><button type="button" class="btn" data-m="cancel">Fermer</button>';
     onEnter('#cl-inv', 'invite');
@@ -2667,6 +2669,20 @@ document.addEventListener('keydown', function(e){
   if (!e.altKey || e.ctrlKey || e.metaKey || embedded) return;
   var map = { Digit1:'pane-left', Digit2:'pane-right', Digit0:'pane-focus' }, id = map[e.code];
   if (id) { e.preventDefault(); $('#' + id).click(); }
+});
+
+/* ---------- other tabs ---------- */
+// The same project open in two tabs (e.g. the one opened by the sign-in e-mail): every save
+// in one tab is picked up by the others, so neither overwrites the other's changes or online link.
+window.addEventListener('storage', function(e){
+  if (embedded || !model || e.key !== PFX + model.id || !e.newValue) return;
+  var m; try { m = normalize(JSON.parse(e.newValue)); } catch(er){ return; }
+  if (m.updated && model.updated && m.updated <= model.updated) return;
+  model = m; undo = []; redo = []; fixSel();
+  if (typeof cloud !== 'undefined') { clearTimeout(cloud.timer); cloud.dirty = false; } // the tab that made the change sends it
+  if (CL.enabled) readonly = !!(model.cloud && model.cloud.role === 'read');
+  renderAll();
+  if (CL.enabled) cloudStatus(cloudState());
 });
 
 /* ---------- boot ---------- */
