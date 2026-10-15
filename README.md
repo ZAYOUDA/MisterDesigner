@@ -23,7 +23,9 @@ Quand `public/config.js` contient l'URL et la clé anon d'un projet Supabase, un
 - connexion par lien magique envoyé par e-mail (ou code à 6 chiffres), sans mot de passe ;
 - mise en ligne d'un projet, liste « mes modèles et ceux partagés avec moi », ouverture sur n'importe quel PC ;
 - partage par modèle : le propriétaire invite un collègue par e-mail, en **lecture seule** ou **peut modifier** ; lien direct `#m-<id>` ;
-- envoi automatique des modifications, détection des conflits (numéro de version), historique des versions (une par séance de travail, 50 max) ;
+- modifications partagées dans les deux sens : les siennes partent 4 s après chaque changement, celles des autres arrivent toutes seules (vérification toutes les 10 s et au retour sur l'onglet) ; un vrai conflit (les deux côtés modifiés) demande quoi faire ;
+- les projets en ligne se retrouvent dans n'importe quel navigateur ou PC après connexion (liste « Projets ») ; un navigateur vierge ouvre directement le dernier projet en ligne ;
+- historique des versions (une par séance de travail, 50 max) ;
 - hors ligne, les modifications restent sur le PC et partent au retour du réseau.
 
 Les droits sont appliqués par la base (Row Level Security) : la clé anon est publique sans risque. `config.js` vide : l'application reste entièrement locale.

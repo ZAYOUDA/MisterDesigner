@@ -1416,12 +1416,22 @@ function inlineEdit(host, value, onDone, cls, label){
   inp.addEventListener('dblclick', function(e){ e.stopPropagation(); });
 }
 function projectsDialog(){
-  var q = '';
+  var q = '', online = [], onl = CL.enabled && !!CL.user();
+  function onlineRole(cid){ var o = online.filter(function(x){ return x.id === cid; })[0]; return o ? o.role : ''; }
   function rows(){
     var l = projIndex().sort(function(a, b){ return String(b.updated).localeCompare(String(a.updated)); });
     if (!l.some(function(x){ return x.id === model.id; })) l.unshift(projRow(model));
-    var f = l.filter(function(x){ return !q || x.name.toLowerCase().indexOf(q) >= 0; });
+    var here = {}; l.forEach(function(x){ if (x.cloud) here[x.cloud] = 1; });
+    var all = l.concat(online.filter(function(o){ return !here[o.id]; }).map(function(o){ return { cid:o.id, name:o.name, updated:o.updated_at, role:o.role, owner:o.owner_email, by:o.updated_by_email }; }))
+      .sort(function(a, b){ return a.id === model.id ? -1 : b.id === model.id ? 1 : String(b.updated).localeCompare(String(a.updated)); });
+    var f = all.filter(function(x){ return !q || x.name.toLowerCase().indexOf(q) >= 0; });
     return (f.map(function(x){
+      if (x.cid) { // online, not yet in this browser
+        return '<li class="prow"><div class="pinfo"><div class="pname">' + esc(x.name) + ' <span class="pbadge cl">En ligne</span>' + (x.role !== 'owner' ? ' <span class="pbadge cl">' + esc(ROLES[x.role]) + '</span>' : '') + '</div>' +
+          '<div class="pmeta">Modifié le ' + fmtDate(x.updated) + ' par ' + esc(x.by === CL.email() ? 'vous' : x.by) + (x.role !== 'owner' ? ' · partagé par ' + esc(x.owner) : '') + '</div></div>' +
+          '<div class="pacts"><button type="button" class="btn sm" data-m="copen" data-cid="' + x.cid + '">Ouvrir</button>' +
+          (x.role === 'owner' ? '<button type="button" class="btn sm danger" data-m="cdel" data-cid="' + x.cid + '">Supprimer</button>' : '') + '</div></li>';
+      }
       var cur = x.id === model.id;
       return '<li class="prow' + (cur ? ' cur' : '') + '"><div class="pinfo"><div class="pname">' + esc(x.name) + (cur ? ' <span class="pbadge">Ouvert</span>' : '') + (x.cloud ? ' <span class="pbadge cl">En ligne</span>' : '') + '</div>' +
         '<div class="pmeta">' + x.cubes + ' cubes · ' + x.dims + ' dimensions · ' + x.links + ' liens' + (x.updated ? ' · modifié le ' + fmtDate(x.updated) : '') + (x.author && x.author !== profName() ? ' · créé par ' + esc(x.author) : '') + '</div></div>' +
@@ -1432,15 +1442,34 @@ function projectsDialog(){
     }).join('') || '<li class="hint" style="padding:12px">Aucun projet ne correspond.</li>');
   }
   function draw(){ var ul = $('#plist'); if (ul) ul.innerHTML = rows(); }
+  function refresh(){ if (onl) CL.list().then(function(l){ online = l; draw(); }, function(e){ toast(cloudErr(e)); }); }
+  function delLocal(id){
+    var name = (projIndex().filter(function(x){ return x.id === id; })[0] || { name:model.name }).name;
+    lsDel(PFX + id); lsSet(PKEY, JSON.stringify(projIndex().filter(function(x){ return x.id !== id; })));
+    if (id === model.id) {
+      var rest = projIndex().sort(function(a, c){ return String(c.updated).localeCompare(String(a.updated)); }), next = null;
+      for (var i = 0; i < rest.length && !next; i++) next = loadProject(rest[i].id);
+      model = null; openProject(next || { name:'Nouveau projet' });
+    }
+    draw(); toast('Projet « ' + name + ' » supprimé');
+  }
   var n = projIndex().length;
-  openModal('<div class="mhead"><div class="eyebrow">Enregistrés dans ce navigateur</div><h2>Projets</h2></div><div class="mbody">' +
+  openModal('<div class="mhead"><div class="eyebrow">' + (onl ? 'Ce navigateur et en ligne · ' + esc(CL.email()) : 'Enregistrés dans ce navigateur') + '</div><h2>Projets</h2></div><div class="mbody">' +
     (n > 5 ? '<input id="p-search" class="field" type="search" placeholder="Rechercher un projet" aria-label="Rechercher un projet" style="margin-bottom:10px">' : '') +
     '<ul class="projlist" id="plist"></ul>' +
-    '<p class="hint">Les projets restent dans ce navigateur, sur cet ordinateur. Exportez-les en HTML ou JSON pour les sauvegarder ou les partager.</p></div>' +
+    '<p class="hint">' + (onl ? 'Les projets « En ligne » se retrouvent dans tous vos navigateurs et sur tous vos PC, et leurs modifications sont partagées avec les personnes invitées. Les autres restent dans ce navigateur.'
+      : CL.enabled ? 'Les projets restent dans ce navigateur. Connectez-vous avec « En ligne » pour retrouver vos projets en ligne dans n’importe quel navigateur.'
+      : 'Les projets restent dans ce navigateur, sur cet ordinateur. Exportez-les en HTML ou JSON pour les sauvegarder ou les partager.') + '</p></div>' +
     '<div class="mfoot"><button type="button" class="btn" data-m="cancel">Fermer</button><button type="button" class="btn primary" data-m="new">Nouveau projet</button></div>',
     function(act, b){
       var id = b.dataset.pid;
       if (act === 'new') { closeModal(); newProject(); return; }
+      if (act === 'copen') { openFromCloud(b.dataset.cid); return; }
+      if (act === 'cdel') {
+        if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Supprimer pour tous ?'; return; }
+        CL.remove(b.dataset.cid).then(function(){ toast('Projet supprimé en ligne'); refresh(); }, function(e){ toast(cloudErr(e)); });
+        return;
+      }
       if (act === 'open') { var m = loadProject(id); if (!m) { toast('Ce projet est illisible'); return; } closeModal(); openProject(m); toast('Projet « ' + model.name + ' » ouvert'); return; }
       if (act === 'ren') {
         var row = b.closest('.prow'), nameEl = row.querySelector('.pname'), cur0 = (projIndex().filter(function(x){ return x.id === id; })[0] || model).name;
@@ -1453,18 +1482,13 @@ function projectsDialog(){
         lsSet(PFX + src.id, JSON.stringify(src)); touchIndex(src); draw(); toast('Copie créée : « ' + src.name + ' »'); return;
       }
       if (act === 'del') {
-        if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Confirmer'; return; }
-        var name = (projIndex().filter(function(x){ return x.id === id; })[0] || { name:model.name }).name;
-        lsDel(PFX + id); lsSet(PKEY, JSON.stringify(projIndex().filter(function(x){ return x.id !== id; })));
-        if (id === model.id) {
-          var rest = projIndex().sort(function(a, c){ return String(c.updated).localeCompare(String(a.updated)); }), next = null;
-          for (var i = 0; i < rest.length && !next; i++) next = loadProject(rest[i].id);
-          model = null; openProject(next || { name:'Nouveau projet' });
-        }
-        draw(); toast('Projet « ' + name + ' » supprimé'); return;
+        var row0 = projIndex().filter(function(x){ return x.id === id; })[0] || projRow(model), everywhere = onl && row0.cloud && onlineRole(row0.cloud) === 'owner';
+        if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = everywhere ? 'Supprimer pour tous ?' : 'Confirmer'; return; }
+        if (everywhere) { CL.remove(row0.cloud).then(function(){ online = online.filter(function(o){ return o.id !== row0.cloud; }); delLocal(id); }, function(e){ toast(cloudErr(e)); }); return; }
+        delLocal(id); return;
       }
     });
-  draw();
+  draw(); refresh();
   var ps = $('#p-search'); if (ps) ps.addEventListener('input', function(e){ q = e.target.value.trim().toLowerCase(); draw(); });
 }
 
@@ -1537,6 +1561,7 @@ var cloud = { dirty:false, busy:false, timer:0, quiet:false, state:'' };
 var PENDING = 'msd:open', LASTMAIL = 'msd:email';
 var ROLES = { owner:'Propriétaire', edit:'Peut modifier', read:'Lecture seule' };
 function exportable(m){ var o = JSON.parse(JSON.stringify(m)); delete o.cloud; delete o.sample; return o; }
+function content(m){ var o = exportable(m); delete o.updated; delete o.updatedBy; return JSON.stringify(o); } // what the model says, not when it was saved
 function who(mail){ return String(mail || '').split('@')[0] || 'un collègue'; }
 function cloudErr(e){
   var s = e && e.status, msg = String(e && e.message || '');
@@ -1614,25 +1639,66 @@ function openFromCloud(id){
     toast('« ' + model.name + ' » ouvert' + (r.role === 'read' ? ' en lecture seule' : ''));
   }, function(e){ toast(cloudErr(e)); });
 }
+// one tab at a time: the sign-in e-mail opens a second tab, and both must not upload the same project
+function withLock(fn){ return navigator.locks && navigator.locks.request ? navigator.locks.request('msd-cloud-sync', fn) : Promise.resolve().then(fn); }
 function publish(){
-  model.sample = false;
-  return CL.create(model.name, exportable(model)).then(function(r){
-    r.role = 'owner'; bindCloud(model, r);
-    cloud.quiet = true; save(); cloud.quiet = false; cloud.dirty = false;
-    renderAll(); cloudStatus('saved'); toast('« ' + model.name + ' » est en ligne : invitez vos collègues pour le partager');
+  var id = model.id;
+  return withLock(function(){
+    var stored = loadProject(id);
+    if (model.id !== id || model.cloud || (stored && stored.cloud)) return null; // already online, possibly from another tab
+    model.sample = false; cloud.quiet = true; save(); cloud.quiet = false; // author and dates set before the snapshot
+    var data = exportable(model), sent = content(model);
+    return CL.create(model.name, data).then(function(r){
+      if (model.id !== id) return r;
+      r.role = 'owner'; bindCloud(model, r);
+      cloud.quiet = true; save(); cloud.quiet = false; cloud.dirty = false;
+      if (content(model) !== sent) cloudTouch(); // edited during the upload
+      return r;
+    });
+  }).then(function(r){
+    renderAll(); cloudStatus(cloudState());
+    if (r) toast('« ' + model.name + ' » est en ligne : invitez vos collègues pour le partager');
   });
 }
+// After sign-in: send the changes made to online projects while signed out (projects not open in this tab).
+function syncPending(){
+  if (!CL.user()) return Promise.resolve();
+  return projIndex().reduce(function(p, row){
+    return p.then(function(){
+      if (!row.cloud || (model && model.id === row.id)) return;
+      var m = loadProject(row.id); if (!m || !m.cloud || !m.cloud.dirty || m.cloud.role === 'read') return;
+      return CL.update(m.cloud.id, m.cloud.version, m.name, exportable(m)).then(function(r){
+        var lm = loadProject(row.id); if (!lm || !lm.cloud) return;
+        lm.cloud.version = r.version; lm.cloud.savedAt = r.updated_at; lm.cloud.dirty = false; lsSet(PFX + row.id, JSON.stringify(lm));
+      });
+    }).catch(function(){}); // conflict or network: left as is, the project asks when it is opened
+  }, Promise.resolve());
+}
 // a colleague may have saved meanwhile (tab in background, or local copy opened from the project list)
+// Collaborators' changes are loaded by themselves; only a real clash (both sides changed) asks what to do.
+var pressing = false; // a cube being dragged: wait for the drop before loading remote changes
+document.addEventListener('pointerdown', function(){ pressing = true; }, true);
+document.addEventListener('pointerup', function(){ pressing = false; }, true);
+document.addEventListener('pointercancel', function(){ pressing = false; }, true);
+function userBusy(){ var a = document.activeElement; return pressing || !!(a && a.closest && a.closest('#app input, #app textarea, #app select')); }
 function checkRemote(){
-  var c = model.cloud; if (!c || !CL.user() || cloud.busy) return;
+  var c = model.cloud; if (!c || !CL.user() || cloud.busy || cloud.pulling || userBusy()) return;
+  cloud.pulling = true;
   CL.meta(c.id).then(function(mt){
     if (model.cloud !== c || mt.version <= c.version) return;
-    if (c.dirty) { cloudStatus('conflict'); conflictDialog(mt); return; }
-    if (!$('#modal').hidden) return;
-    openModal('<div class="mhead"><h2>Nouvelle version disponible</h2></div><div class="mbody"><p>' + esc(who(mt.updated_by_email)) + ' a enregistré « ' + esc(mt.name) + ' » le ' + esc(fmtDate(mt.updated_at)) + '.</p></div>' +
-      '<div class="mfoot"><button type="button" class="btn" data-m="cancel">Plus tard</button><button type="button" class="btn primary" data-m="reload">Charger sa version</button></div>',
-      function(act){ if (act === 'reload') openFromCloud(c.id); });
-  }, function(){});
+    if (c.dirty || cloud.dirty) { if ($('#modal').hidden) { cloudStatus('conflict'); conflictDialog(mt); } return; }
+    return CL.get(c.id).then(function(r){
+      if (model.cloud !== c || c.dirty || cloud.dirty || r.version <= c.version || userBusy()) return;
+      var m = r.data || {}; if (!Array.isArray(m.cubes)) return;
+      m.id = model.id; m.name = r.name; bindCloud(m, r);
+      var keep = { sel:sel, hl:hl, tab:tab };
+      cloud.quiet = true; model = normalize(m); undo = []; redo = []; save(); cloud.quiet = false;
+      sel = keep.sel; hl = keep.hl; fixSel();
+      renderAll();
+      cloudStatus(cloudState());
+      toast('Modifications de ' + who(r.updated_by_email || mt.updated_by_email) + ' reçues');
+    });
+  }).catch(function(){}).then(function(){ cloud.pulling = false; });
 }
 function conflictDialog(mt){
   var c = model.cloud;
@@ -1695,8 +1761,12 @@ function copyText(t, okMsg){
 function takePending(){ var p = lsGet(PENDING); if (p) lsDel(PENDING); return p; }
 function afterLogin(){
   var p = takePending();
+  syncPending();
   if (p) { openFromCloud(p); return; }
   if (model.cloud && model.cloud.dirty) cloudSave(false); else checkRemote();
+  // a browser with no project of its own (e.g. the one the sign-in e-mail opened): open the latest online one
+  var fresh = !(model.cubes.length && !model.sample) && !projIndex().some(function(x){ return x.cubes > 0; });
+  if (fresh) CL.list().then(function(l){ if (l.length && !(model.cubes.length && !model.sample)) openFromCloud(l[0].id); }, function(){});
 }
 var cloudRedraw = null;
 function cloudDialog(){
@@ -1839,6 +1909,7 @@ function cloudBoot(){
     if ($('#clbody') && cloudRedraw) cloudRedraw();
   });
   window.addEventListener('focus', checkRemote);
+  setInterval(function(){ if (document.visibilityState === 'visible') checkRemote(); }, 10000);
   window.addEventListener('online', function(){ if (cloud.dirty || (model.cloud && model.cloud.dirty)) cloudSave(false); });
 }
 
